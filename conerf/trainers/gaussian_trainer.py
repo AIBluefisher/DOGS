@@ -133,7 +133,8 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         data_dir = os.path.join(
             self.config.dataset.root_dir, self.config.dataset.scene)
         colmap_dir = os.path.join(
-            data_dir, self.config.dataset.get("model_folder", "sparse"), # model_folder,
+            data_dir, self.config.dataset.get(
+                "model_folder", "sparse"),  # model_folder,
             "manhattan_world" if self.config.dataset.get(
                 "use_manhattan_world", False) else "0"
         )
@@ -201,6 +202,20 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         if self.gaussians is None:
             self.gaussians = self.model
 
+        self.setup_gaussian_optimizer()
+        self.setup_appearance_mask_optimizer()
+        self.setup_exposure_optimizer()
+        self.setup_pose_optimizer()
+
+        lr_config = self.config.optimizer.lr
+        self.xyz_scheduler = ExponentialLR(
+            lr_init=lr_config.position_init * self.spatial_lr_scale,
+            lr_final=lr_config.position_final * self.spatial_lr_scale,
+            lr_delay_mult=lr_config.position_delay_mult,
+            max_steps=lr_config.position_max_iterations
+        )
+
+    def setup_gaussian_optimizer(self):
         lr_config = self.config.optimizer.lr
         lr_params = [
             {
@@ -229,19 +244,20 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             },
         ]
 
+        self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
+        # self.optimizer = SparseGaussianAdam(lr_params, lr=0.0, eps=1e-15)
+
+    def setup_appearance_mask_optimizer(self):
+        lr_config = self.config.optimizer.lr
+
         self.mask_optimizer = None
         if self.mask is not None:
             self.mask_optimizer = torch.optim.Adam(
-                self.mask.parameters(), lr=lr_config.mask)
+                self.mask.parameters(), lr=lr_config.mask
+            )
 
-        # self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
-        self.optimizer = SparseGaussianAdam(lr_params, lr=0.0, eps=1e-15)
-        self.xyz_scheduler = ExponentialLR(
-            lr_init=lr_config.position_init * self.spatial_lr_scale,
-            lr_final=lr_config.position_final * self.spatial_lr_scale,
-            lr_delay_mult=lr_config.position_delay_mult,
-            max_steps=lr_config.position_max_iterations
-        )
+    def setup_exposure_optimizer(self):
+        lr_config = self.config.optimizer.lr
 
         self.exposure_optimizer = None
         self.exposure_scheduler = None
@@ -255,8 +271,6 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                 lr_delay_mult=lr_config.exposure_lr_delay_mult,
                 max_steps=lr_config.exposure_max_iterations,
             )
-
-        self.setup_pose_optimizer()
 
     def setup_pose_optimizer(self):
         if not self.optimize_camera_poses:
@@ -371,7 +385,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             pipeline_config=self.config.pipeline,
             bkgd_color=self.color_bkgd,
             anti_aliasing=self.config.texture.anti_aliasing,
-            separate_sh=True,
+            separate_sh=False, # True,
             use_trained_exposure=self.config.appearance.use_trained_exposure,
             depth_threshold=self.config.geometry.depth_threshold,
             device=self.device,
@@ -443,7 +457,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                         if self.iteration > self.config.geometry.opacity_reset_interval else None
                     self.gaussians.densify_and_prune(
                         max_grad=self.config.geometry.densify_grad_threshold,
-                        min_opacity=0.005,
+                        min_opacity=self.config.geometry.min_opacity,
                         extent=self.spatial_lr_scale,
                         max_screen_size=size_threshold,
                         optimizer=self.optimizer,
@@ -470,9 +484,9 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
 
         # Optimizer step.
 
-        # self.optimizer.step()
-        visible = radii > 0
-        self.optimizer.step(visible, radii.shape[0])
+        self.optimizer.step()
+        # visible = radii > 0
+        # self.optimizer.step(visible, radii.shape[0])
         self.optimizer.zero_grad(set_to_none=True)
 
         if self.exposure_optimizer is not None:
