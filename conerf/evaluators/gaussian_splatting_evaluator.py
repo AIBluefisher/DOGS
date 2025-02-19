@@ -273,7 +273,7 @@ class GaussianSplatEvaluator(Evaluator):
             pipeline_config=self.config.pipeline,
             bkgd_color=self.color_bkgd,
             anti_aliasing=self.config.texture.anti_aliasing,
-            separate_sh=True,
+            separate_sh=False, # True,
         )
 
         render_time = time.time() - time_start
