@@ -202,6 +202,9 @@ def load_colmap(
         data_dir, model_folder,
         "manhattan_world" if use_manhattan_world else "0"
     )
+    ori_image_dir = os.path.join(data_dir, "images")
+    if factor > 1:
+        ori_image_dir = ori_image_dir + f"_{factor}"
 
     train_image_name = []
     if load_specified_images:
@@ -212,7 +215,8 @@ def load_colmap(
             while line:
                 data = line.split(' ')
                 image_id, image_path = int(data[0]), str(data[1])
-                train_image_name.append(os.path.split(image_path.strip())[1])
+                image_name = image_path[len(ori_image_dir)+1:].strip()
+                train_image_name.append(image_name)
                 line = file.readline()
 
     if mx is not None and my is not None:
@@ -277,7 +281,7 @@ def load_colmap(
         # the y-axis points towards downward. Therefore, we transform the coordinate axis
         # to let the z-axis points towards the ground plane.
         # NOTE: for the `building` scene, the z-axis point towards the ground using COLMAP's
-        # aligner. Therefore, we do not make such coordiante transformation for it.
+        # aligner. Therefore, we do not make such coordinate transformation for it.
         if subject_id.lower() != "building":
             T = np.array([
                 [1, 0, 0, 0],
@@ -291,6 +295,7 @@ def load_colmap(
         bbox_path = os.path.join(colmap_dir, "bounding_box.txt")
         bounding_box = compute_bounding_box3D(torch.from_numpy(points3d))
         save_bounding_boxes([bounding_box], bbox_path)
+
     if scale:
         # normalize the scene
         T, scale = similarity_from_cameras(
@@ -525,14 +530,16 @@ def similarity_from_cameras(c2w, strict_scaling):
             [-cross[1], cross[0], 0.0],
         ]
     )
-    if c > -1:
-        R_align = np.eye(3) + skew + (skew @ skew) * 1 / \
-            (1 + c)  # pylint: disable=C0103
-    else:
-        # In the unlikely case the original data has y+ up axis,
-        # rotate 180-deg about x axis
-        R_align = np.array(  # pylint: disable=C0103
-            [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    # if c > -1:
+    #     R_align = np.eye(3) + skew + (skew @ skew) * 1 / \
+    #         (1 + c)  # pylint: disable=C0103
+    # else:
+    #     # In the unlikely case the original data has y+ up axis,
+    #     # rotate 180-deg about x axis
+    #     R_align = np.array(  # pylint: disable=C0103
+    #         [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    R_align = np.array(  # pylint: disable=C0103
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
     #  R_align = np.eye(3) # DEBUG
     R = R_align @ R

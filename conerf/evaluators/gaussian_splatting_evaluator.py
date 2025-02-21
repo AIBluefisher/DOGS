@@ -238,7 +238,8 @@ class GaussianSplatEvaluator(Evaluator):
                 video_name = os.path.join(eval_dir, 'render.mp4')
                 rendered_image_dir = os.path.join(image_dir, "rgb_test")
                 os.system(
-                    f"ffmpeg -framerate 5 -i {rendered_image_dir}/%3d.png " +
+                    f"ffmpeg -framerate 10 -i {rendered_image_dir}/%3d.png " +
+                    "-vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' " +
                     f"-c:v libx264 -pix_fmt yuv420p {video_name}")
 
         metric_file = os.path.join(eval_dir, 'metrics.json')
