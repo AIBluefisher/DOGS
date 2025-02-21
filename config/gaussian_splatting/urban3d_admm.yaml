@@ -15,9 +15,10 @@ dataset:
   apply_mask: false
   multi_blocks: true
   num_blocks: 1
-  mx: 4
+  mx: 2
   my: 2
-  bbox_scale_factor: [1.2,1.2,1.2]
+  bbox_scale_factor: [1.4,1.4,1.4]
+  use_manhattan_world: true
   scale: false # urban3d scenes are aligned with ground plane under the manhattan world assumption
   rotate: false # urban3d scenes are aligned with ground plane under the manhattan world assumption
   batch_over_images: false
@@ -33,14 +34,14 @@ trainer:
   visdom_port:
   n_tensorboard: 100
   n_validation: 20000
-  n_checkpoint: 30000
+  n_checkpoint: 20000
   distributed: true
   excluded_gpus: []
   num_workers: 3
   local_rank: 0
   admm:
     enable: true
-    consensus_interval: 100
+    consensus_interval: 200
     alpha_xyz: 1e5
     alpha_fdc: 1e4
     alpha_fr: 1e5
@@ -54,18 +55,18 @@ trainer:
     over_relaxation_coeff: 0.5
 
 prune:
-  iterations: [] # [12000, 24000]
+  iterations: [29800] # [12000, 24000]
   v_pow: 0.1
   prune_decay: 0.6
-  prune_percent: 0.5
+  prune_percent: 0.25
 
 optimizer:
   lr:
     # Gaussian centers related.
-    position_init: 0.00016
-    position_final: 0.0000016
+    position_init: 0.000016
+    position_final: 0.00000016
     position_delay_mult: 0.01
-    position_max_iterations: ${trainer.max_iterations}
+    position_max_iterations: 30000
     # Exposure related.
     exposure_lr_init: 0.01
     exposure_lr_final: 0.001
@@ -74,7 +75,7 @@ optimizer:
     exposure_max_iterations: ${trainer.max_iterations}
     # Other 3D GS properties.
     feature: 0.0025
-    opacity: 0.025
+    opacity: 0.05
     scaling: 0.005
     quaternion: 0.001
     # Decoupled appearance encoding.
@@ -82,6 +83,8 @@ optimizer:
 
 geometry:
   percent_dense: 0.001
+  depth_threshold: 0.23
+  coarse-to-fine: false
   sample_more_high_resolution: false
   densify_start_iter: 1000
   densify_end_iter: 30000
@@ -104,5 +107,5 @@ pipeline:
 
 loss:
   lambda_dssim: 0.2
-  lambda_scale: 0.01
+  lambda_scale: 0.05
   lambda_mask: 0.5

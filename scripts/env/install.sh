@@ -3,7 +3,6 @@
 
 # install pytorch
 # Ref: https://pytorch.org/get-started/previous-versions/
-
 # CUDA 11.8
 conda install pytorch==2.0.1 torchvision==0.15.2 pytorch-cuda=11.8 -c pytorch -c nvidia
 conda install -c "nvidia/label/cuda-11.8.0" cuda
@@ -15,7 +14,7 @@ pip install tqdm scikit-image opencv-python configargparse lpips imageio-ffmpeg 
             open3d pyrender
 
 pip install -U scikit-learn
-pip install torch-geometric==2.4.0
+# pip install torch-geometric==2.4.0
 
 conda install conda-forge::opencv
 conda install pytorch3d -c pytorch3d
@@ -25,7 +24,7 @@ conda remove ffmpeg --force
 # Third-parties.
 
 pip install submodules/simple-knn
-pip install submodules/fused_ssim
+pip install submodules/fused-ssim
 pip install submodules/diff-gaussian-rasterization
 
 mkdir 3rd_party && cd 3rd_party

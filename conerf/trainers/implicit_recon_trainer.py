@@ -26,6 +26,7 @@ class ImplicitReconTrainer(BaseTrainer):
         trainset=None,
         valset=None,
         model: ModelBase = None,
+        appear_embedding: torch.nn.Module = None,
         block_id: int = None,
         device_id: int = 0,
     ) -> None:
@@ -42,6 +43,8 @@ class ImplicitReconTrainer(BaseTrainer):
         self.log_learning_rate = True
 
         self.model = model.to(self.device) if model is not None else None
+        self.mask = appear_embedding.to(self.device) \
+            if appear_embedding is not None else None
         self.delta_pose = None
         self.optimize_camera_poses = False
 
@@ -365,6 +368,8 @@ class ImplicitReconTrainer(BaseTrainer):
 
             if self.train_dataset is not None:
                 self.train_dataset.training = True
+
+            torch.cuda.empty_cache()
 
             return psnr_avg
         return 0.0

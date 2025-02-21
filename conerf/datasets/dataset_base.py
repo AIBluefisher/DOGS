@@ -223,13 +223,13 @@ class DatasetBase(torch.utils.data.Dataset):
             block_normals = data["normals"]
 
             self._block_cameras = [None] * num_blocks
-            self.num_blocks = len(self._block_images)
+            self.num_blocks = num_blocks
             self._current_block_id = 0
 
             for k in range(self.num_blocks):
                 normals = block_normals[k] if self.load_normal else None
                 self._block_cameras[k] = compose_cameras(
-                    block_image_paths, self._block_images[k],
+                    block_image_paths[k], None, # self._block_images[k],
                     self._block_camtoworlds[k], self._block_intrinsics[k],
                     normals=normals,
                     channels=kwargs["num_channels"],
@@ -302,8 +302,6 @@ class DatasetBase(torch.utils.data.Dataset):
             return
 
         if self.multi_blocks and self.split == "train":
-            # self._block_images[self.current_block] = \
-            #     self._block_images[self.current_block].to(self.device)
             self._block_camtoworlds[self.current_block] = \
                 self._block_camtoworlds[self.current_block].to(self.device)
             self._block_intrinsics[self.current_block] = \

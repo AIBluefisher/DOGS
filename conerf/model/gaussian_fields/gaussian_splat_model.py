@@ -268,15 +268,15 @@ class GaussianSplatModel:
     @property
     def get_exposure(self):
         return self._exposure
-    
+
     def get_exposure_from_id(self, image_id: int):
         return self._exposure[self.image_id_to_index[image_id]]
 
     def get_all_properties(self, indices: torch.Tensor = None) -> Tuple:
         if indices is None:
             return (
-                self._xyz, self._features_dc, self._features_rest, \
-                    self._scaling, self._quaternion, self._opacity
+                self._xyz, self._features_dc, self._features_rest,
+                self._scaling, self._quaternion, self._opacity
             )
         return (
             self._xyz[indices],
@@ -299,13 +299,16 @@ class GaussianSplatModel:
         sub_gaussians.set_opt_raw_quaternion(self._quaternion[indices, :])
         sub_gaussians.set_opt_raw_opacity(self._opacity[indices, :])
         num_gaussians = sub_gaussians.get_xyz.shape[0]
-        sub_gaussians.max_radii2D = torch.zeros((num_gaussians), device=self.device)
-        sub_gaussians.xyz_gradient_accum = torch.zeros((num_gaussians, 1), device=self.device)
-        sub_gaussians.denom = torch.zeros((num_gaussians, 1), device=self.device)
+        sub_gaussians.max_radii2D = torch.zeros(
+            (num_gaussians), device=self.device)
+        sub_gaussians.xyz_gradient_accum = torch.zeros(
+            (num_gaussians, 1), device=self.device)
+        sub_gaussians.denom = torch.zeros(
+            (num_gaussians, 1), device=self.device)
 
         return sub_gaussians
 
-    def extract_sub_gaussians(self, indices = None):
+    def extract_sub_gaussians(self, indices=None):
         self._xyz = self._xyz[indices]
         self._features_dc = self._features_dc[indices]
         self._features_rest = self._features_rest[indices]
@@ -333,8 +336,10 @@ class GaussianSplatModel:
     @torch.no_grad()
     def average_gaussians(self, count: torch.Tensor):
         self._xyz /= count.expand(-1, 3)
-        self._features_dc /= count.unsqueeze(-1).expand(-1, self._features_dc.shape[-2], 3)
-        self._features_rest /= count.unsqueeze(-1).expand(-1, self._features_rest.shape[-2], 3)
+        self._features_dc /= count.unsqueeze(-1).expand(-1,
+                                                        self._features_dc.shape[-2], 3)
+        self._features_rest /= count.unsqueeze(-1).expand(-1,
+                                                          self._features_rest.shape[-2], 3)
         self._scaling /= count.expand(-1, 3)
         self._quaternion /= count.expand(-1, 4)
         self._opacity /= count
@@ -433,7 +438,8 @@ class GaussianSplatModel:
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent, optimizer):
         # Extract points that satisfy the gradient condition.
-        selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
+        selected_pts_mask = torch.where(torch.norm(
+            grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(
             selected_pts_mask,
             torch.max(self.get_scaling,
@@ -461,7 +467,8 @@ class GaussianSplatModel:
         # Extract points that satisfy the gradient condition
         padded_grad = torch.zeros((n_init_points), device=device)
         padded_grad[:grads.shape[0]] = grads.squeeze()
-        selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
+        selected_pts_mask = torch.where(
+            padded_grad >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(
             selected_pts_mask,
             torch.max(self.get_scaling,
@@ -481,9 +488,12 @@ class GaussianSplatModel:
             self.get_scaling[selected_pts_mask].repeat(
                 num_replica, 1) / (0.8 * num_replica)
         )
-        new_quaternion = self._quaternion[selected_pts_mask].repeat(num_replica, 1)
-        new_features_dc = self._features_dc[selected_pts_mask].repeat(num_replica, 1, 1)
-        new_features_rest = self._features_rest[selected_pts_mask].repeat(num_replica, 1, 1)
+        new_quaternion = self._quaternion[selected_pts_mask].repeat(
+            num_replica, 1)
+        new_features_dc = self._features_dc[selected_pts_mask].repeat(
+            num_replica, 1, 1)
+        new_features_rest = self._features_rest[selected_pts_mask].repeat(
+            num_replica, 1, 1)
         new_opacity = self._opacity[selected_pts_mask].repeat(num_replica, 1)
 
         self.densification_postfix(
@@ -505,13 +515,24 @@ class GaussianSplatModel:
         extent,
         max_screen_size,
         optimizer,
-        bounding_box=None,
+        bounding_box: torch.Tensor = None,
+        # parameters for motion deblur.
+        prune_depth: bool = False,
+        tar_range: int = 3,
     ):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
         self.densify_and_clone(grads, max_grad, extent, optimizer)
         self.densify_and_split(grads, max_grad, extent, optimizer)
+
+        if prune_depth:
+            depth = self.get_xyz[..., -1]
+            min_depth, max_depth = depth.amin(), depth.amax()
+            norm_depth = (depth - min_depth) / (max_depth -
+                                                min_depth) * (tar_range - 1) + 1
+            min_opacity = min_opacity / norm_depth
+            min_opacity = min_opacity[..., None]
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
 
@@ -531,20 +552,112 @@ class GaussianSplatModel:
         torch.cuda.empty_cache()
 
     def add_densification_stats(self, screen_space_points, update_filter):
-        participated_pixels = 1
+        if type(screen_space_points) == list:
+            for i in range(len(screen_space_points)):  # pylint: disable=C0200
+                self.xyz_gradient_accum[update_filter[i]] += torch.norm(
+                    screen_space_points[i].grad[update_filter[i], :2],
+                    dim=-1,
+                    keepdim=True,
+                )
+                self.denom[update_filter[i]] += 1 / len(update_filter)
+        else:
+            participated_pixels = 1
+            self.xyz_gradient_accum[update_filter] += torch.norm(
+                screen_space_points.grad[update_filter, :2],
+                dim=-1,
+                keepdim=True
+            ) * participated_pixels
+            self.denom[update_filter] += participated_pixels
 
-        self.xyz_gradient_accum[update_filter] += torch.norm(
-            screen_space_points.grad[update_filter, :2],
-            dim=-1,
-            keepdim=True
-        ) * participated_pixels
-        self.denom[update_filter] += participated_pixels
+    def allocate_extra_points(
+        self,
+        distance: float = 10000.0,
+        num_nearest_neighbor: int = 4,
+        num_points: int = 100000,
+        bound: int = 50,
+    ):
+        existing_points = self.get_xyz
+        existing_color = self.get_features.transpose(
+            1, 2).view(-1, 3, (self.max_sh_degree + 1) ** 2)
+        min_dist = torch.tensor([distance], device=self.device)
+        sorted_existing_points = existing_points.sort(0)[0]
+        bbox_min = sorted_existing_points[bound]
+        bbox_max = sorted_existing_points[-bound]
+
+        extra_points = torch.rand((num_points, 3), device=self.device)
+        extra_points = extra_points * (bbox_max - bbox_min) + bbox_min
+        dummy_color = torch.rand(
+            (3, (self.max_sh_degree + 1) ** 2), device=self.device)
+        mask_points = torch.ones(
+            num_points, dtype=torch.bool, device=self.device)
+
+        def find_nearest_neighbors(new_point):
+            distances = torch.norm(existing_points - new_point, dim=1)
+            nearest_indices = torch.topk(-distances,
+                                         num_nearest_neighbor).indices
+            return nearest_indices, distances
+
+        interpolated_colors = []
+        for i, new_point in enumerate(extra_points):
+            if i % 10000 == 0:
+                torch.cuda.empty_cache()
+
+            nearest_indices, distances = find_nearest_neighbors(new_point)
+            interpolated_feature = torch.zeros_like(existing_color)
+
+            weights = distances[nearest_indices]
+            mask = weights < min_dist
+            weights = weights[mask]
+            near_color = existing_color[nearest_indices]
+            near_color = near_color[mask]
+
+            if len(weights) == 0:
+                interpolated_feature = dummy_color
+                mask_points[i] = 0
+            else:
+                weight_sum = weights.sum()
+                weights /= weight_sum
+                interpolated_feature = (
+                    near_color * weights[:, None, None]).sum(0)
+
+            interpolated_colors.append(interpolated_feature.detach())
+        interpolated_colors = torch.stack(interpolated_colors)
+
+        fused_point_cloud = extra_points[mask_points]
+        features = interpolated_colors[mask_points]
+
+        fused_point_cloud = torch.concat([self.get_xyz, fused_point_cloud])
+        features = torch.concat([existing_color, features])
+
+        dist2 = torch.clamp_min(distCUDA2(fused_point_cloud), 1e-7)
+        scales = torch.log(torch.sqrt(dist2))[..., None].repeat(1, 3)
+        rotations = torch.zeros(
+            (fused_point_cloud.shape[0], 4), device=self.device)
+        rotations[:, 0] = 1
+        opacities = inverse_sigmoid(0.1 * torch.ones(
+            (fused_point_cloud.shape[0], 1), dtype=torch.float, device=self.device))
+
+        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
+        self._features_dc = nn.Parameter(features[:, :, :1].transpose(
+            1, 2).contiguous().requires_grad_(True))
+        self._features_rest = nn.Parameter(
+            features[:, :, 1:].transpose(1, 2).contiguous().requires_grad_(True))
+        self._scaling = nn.Parameter(scales.requires_grad_(True))
+        self._quaternion = nn.Parameter(rotations.requires_grad_(True))
+        self._opacity = nn.Parameter(opacities.requires_grad_(True))
+        self.max_radii2D = torch.zeros(
+            (self.get_xyz.shape[0]), device=self.device)
+        self.xyz_gradient_accum = torch.zeros(
+            (self.get_xyz.shape[0], 1), device=self.device)
+        self.denom = torch.zeros(
+            (self.get_xyz.shape[0], 1), device=self.device)
 
     def init_from_colmap_pcd(self, pcd: BasicPointCloud, image_idxs: List = None):
         """
         Initialize from the point clouds generated by COLMAP.
         """
-        fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().to(self.device)
+        fused_point_cloud = torch.tensor(
+            np.asarray(pcd.points)).float().to(self.device)
         fused_color = RGB2SH(torch.tensor(
             np.asarray(pcd.colors)).float().to(self.device)
         )
@@ -576,15 +689,18 @@ class GaussianSplatModel:
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
 
         if image_idxs is not None:
-            self.image_id_to_index = {idx: ind for ind, idx in enumerate(image_idxs)}
+            self.image_id_to_index = {
+                idx: ind for ind, idx in enumerate(image_idxs)}
             exposure = torch.eye(3, 4, device=self.device)[None].repeat(
                 len(image_idxs), 1, 1)
             self._exposure = nn.Parameter(exposure.requires_grad_(True))
 
-        self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device=self.device)
+        self.max_radii2D = torch.zeros(
+            (self.get_xyz.shape[0]), device=self.device)
         self.xyz_gradient_accum = torch.zeros(
             (self.get_xyz.shape[0], 1), device=self.device)
-        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device=self.device)
+        self.denom = torch.zeros(
+            (self.get_xyz.shape[0], 1), device=self.device)
 
     def init_from_external_properties(
         self,
@@ -629,7 +745,8 @@ class GaussianSplatModel:
 
         dtype_full = [(attribute, 'f4')
                       for attribute in ['x', 'y', 'z', 'nx', 'ny', 'nz']]
-        dtype_full += [(attribute, 'u1') for attribute in ['red', 'green', 'blue']]
+        dtype_full += [(attribute, 'u1')
+                       for attribute in ['red', 'green', 'blue']]
 
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
         attributes = np.concatenate((xyz, normals, rgbs,), axis=1)
@@ -655,7 +772,7 @@ class GaussianSplatModel:
         num_points = xyz.shape[0]
         file = open(path, 'w')
         file.write("# 3D point list with one line of data per point:\n")
-        file.write("#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, " + \
+        file.write("#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, " +
                    "TRACK[] as (IMAGE_ID, POINT2D_IDX)\n")
         file.write(f"# Number of points: {num_points}, mean track length: 0\n")
         for i in range(num_points):
@@ -679,12 +796,15 @@ class GaussianSplatModel:
         )
         pbar = tqdm.trange(len(sorted_indices), desc="Saving Splat file")
         for idx in sorted_indices:
-            position = np.array([xyz[idx][0], xyz[idx][1], xyz[idx][2]], dtype=np.float32)
+            position = np.array(
+                [xyz[idx][0], xyz[idx][1], xyz[idx][2]], dtype=np.float32)
             scales = np.exp(
-                np.array([scale[idx][0], scale[idx][1], scale[idx][2]], dtype=np.float32)
+                np.array([scale[idx][0], scale[idx][1],
+                         scale[idx][2]], dtype=np.float32)
             )
             rot = np.array(
-                [quaternion[idx][0], quaternion[idx][1], quaternion[idx][2], quaternion[idx][3]],
+                [quaternion[idx][0], quaternion[idx][1],
+                    quaternion[idx][2], quaternion[idx][3]],
                 dtype=np.float32
             )
             SH_C0 = 0.28209479177387814

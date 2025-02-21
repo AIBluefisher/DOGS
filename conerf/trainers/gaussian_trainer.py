@@ -12,7 +12,6 @@ import numpy as np
 
 from conerf.base.model_base import ModelBase
 from conerf.base.task_queue import ImageReader
-from conerf.datasets.dataset_base import MiniDataset
 from conerf.datasets.utils import (
     fetch_ply, compute_nerf_plus_plus_norm, create_dataset, get_block_info_dir
 )
@@ -113,22 +112,11 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         trainset=None,
         valset=None,
         model: ModelBase = None,
+        appear_embedding: torch.nn.Module = None,
         block_id: int = None,
         device_id: int = 0,
     ) -> None:
         self.gaussians = None
-
-        if trainset is None and block_id is not None:
-            mx = config.dataset.get("mx", None)  # pylint: disable=C0103
-            my = config.dataset.get("my", None)  # pylint: disable=C0103
-            data_dir = os.path.join(
-                config.dataset.root_dir, config.dataset.scene)
-            data_dir = get_block_info_dir(
-                data_dir, config.dataset.num_blocks, mx, my)
-            block_dir = os.path.join(data_dir, f'block_{block_id}')
-            trainset = MiniDataset(
-                cameras=[], camtoworlds=None, block_id=block_id)
-            trainset.read(path=block_dir, block_id=block_id, device='cpu')
 
         if valset is None:
             valset = load_val_dataset(config, 'cpu')
@@ -136,7 +124,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         self.admm_enabled = False
 
         super().__init__(config, prefetch_dataset,
-                         trainset, valset, model, block_id, device_id)
+                         trainset, valset, model, appear_embedding, block_id, device_id)
 
     def init_gaussians(self):
         # Using semantic alias to better understand the code.
@@ -145,7 +133,8 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         data_dir = os.path.join(
             self.config.dataset.root_dir, self.config.dataset.scene)
         colmap_dir = os.path.join(
-            data_dir, self.config.dataset.model_folder,
+            data_dir, self.config.dataset.get(
+                "model_folder", "sparse"),  # model_folder,
             "manhattan_world" if self.config.dataset.get(
                 "use_manhattan_world", False) else "0"
         )
@@ -161,7 +150,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             dense = '' if self.config.dataset.init_ply_type == "sparse" else "_dense"
             colmap_ply_path = os.path.join(
                 colmap_dir, f"{pcl_name}{dense}.ply")
-            print(f'Initialize 3DGS using {colmap_ply_path}')
+        print(f'Initialize 3DGS using {colmap_ply_path}')
 
         point_cloud = fetch_ply(colmap_ply_path)
         self.gaussians.init_from_colmap_pcd(
@@ -170,7 +159,8 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             if self.config.appearance.use_trained_exposure else None
         )
         bounding_box = ImplicitReconTrainer.read_bounding_box(colmap_dir)
-        self.bounding_box = torch.tensor(bounding_box, dtype=torch.float32)
+        self.bounding_box = torch.tensor(bounding_box, dtype=torch.float32) \
+            if bounding_box is not None else None
 
     def build_networks(self):
         self.model = GaussianSplatModel(
@@ -179,6 +169,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             device=self.device,
         )
 
+        self.mask = None
         if self.config.geometry.get("mask", False):
             self.mask = AppearanceEmbedding(
                 len(self.train_dataset.cameras)).to(self.device)
@@ -211,6 +202,20 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         if self.gaussians is None:
             self.gaussians = self.model
 
+        self.setup_gaussian_optimizer()
+        self.setup_appearance_mask_optimizer()
+        self.setup_exposure_optimizer()
+        self.setup_pose_optimizer()
+
+        lr_config = self.config.optimizer.lr
+        self.xyz_scheduler = ExponentialLR(
+            lr_init=lr_config.position_init * self.spatial_lr_scale,
+            lr_final=lr_config.position_final * self.spatial_lr_scale,
+            lr_delay_mult=lr_config.position_delay_mult,
+            max_steps=lr_config.position_max_iterations
+        )
+
+    def setup_gaussian_optimizer(self):
         lr_config = self.config.optimizer.lr
         lr_params = [
             {
@@ -239,19 +244,20 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             },
         ]
 
-        self.mask_optimizer = None
-        if 'mask' in self.config.geometry and self.config.geometry.mask:
-            self.mask_optimizer = torch.optim.Adam(
-                self.mask.parameters(), lr=lr_config.mask)
+        self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
+        # self.optimizer = SparseGaussianAdam(lr_params, lr=0.0, eps=1e-15)
 
-        # self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
-        self.optimizer = SparseGaussianAdam(lr_params, lr=0.0, eps=1e-15)
-        self.xyz_scheduler = ExponentialLR(
-            lr_init=lr_config.position_init * self.spatial_lr_scale,
-            lr_final=lr_config.position_final * self.spatial_lr_scale,
-            lr_delay_mult=lr_config.position_delay_mult,
-            max_steps=lr_config.position_max_iterations
-        )
+    def setup_appearance_mask_optimizer(self):
+        lr_config = self.config.optimizer.lr
+
+        self.mask_optimizer = None
+        if self.mask is not None:
+            self.mask_optimizer = torch.optim.Adam(
+                self.mask.parameters(), lr=lr_config.mask
+            )
+
+    def setup_exposure_optimizer(self):
+        lr_config = self.config.optimizer.lr
 
         self.exposure_optimizer = None
         self.exposure_scheduler = None
@@ -265,8 +271,6 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                 lr_delay_mult=lr_config.exposure_lr_delay_mult,
                 max_steps=lr_config.exposure_max_iterations,
             )
-
-        self.setup_pose_optimizer()
 
     def setup_pose_optimizer(self):
         if not self.optimize_camera_poses:
@@ -328,147 +332,8 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
 
         return resolution
 
-    def update_iteration(self, iteration: int):
-        self.iteration = iteration
-
-    @torch.no_grad()
-    def send_local_model(self):
-        xyz, features_dc, features_rest, scaling, quaternion, opacity = \
-            self.gaussians.get_all_properties()
-
-        return xyz, features_dc, features_rest, scaling, quaternion, opacity
-
-    @torch.no_grad()
-    def send_local_loss(self):
-        return self.scalars_to_log
-
-    def setup_dual_variables(self):
-        # Set dual variables for all the properties of 3D Gaussians:
-        # xyz, features_dc, features_rest, scaling, quaternion, opacity.
-        # We follow DBACC (Distributed Bundle Adjustment based on Camera Consensus) to
-        # initialize all dual variables to zeros.
-        self.u_xyz = torch.zeros_like(
-            self.gaussians.get_xyz, requires_grad=False)
-        self.u_fdc = torch.zeros_like(
-            self.gaussians.get_features_dc, requires_grad=False)
-        self.u_fr = torch.zeros_like(
-            self.gaussians.get_features_rest, requires_grad=False)
-        self.u_s = torch.zeros_like(
-            self.gaussians.get_raw_scaling, requires_grad=False)
-        self.u_q = torch.zeros_like(
-            self.gaussians.get_raw_quaternion, requires_grad=False)
-        self.u_o = torch.zeros_like(
-            self.gaussians.get_raw_opacity, requires_grad=False)
-
-    @torch.no_grad()
-    def update_dual_variables(self):
-        # Apply over-relaxation by:
-        #   u^{k+1} = u^k + (1 + alpha^k) * (x^{k+1} - z^{k+1}).
-        over_relaxation_factor = 1 + self.config.trainer.admm.over_relaxation_coeff
-        self.u_xyz += over_relaxation_factor * (
-            self.gaussians.get_xyz - self.global_xyz
-        )
-        self.u_fdc += over_relaxation_factor * (
-            self.gaussians.get_features_dc - self.global_features_dc
-        )
-        self.u_fr += over_relaxation_factor * (
-            self.gaussians.get_features_rest - self.global_features_rest
-        )
-        self.u_s += over_relaxation_factor * (
-            self.gaussians.get_raw_scaling - self.global_scaling
-        )
-        self.u_q += over_relaxation_factor * (
-            self.gaussians.get_raw_quaternion - self.global_quaternion
-        )
-        self.u_o += over_relaxation_factor * (
-            self.gaussians.get_raw_opacity - self.global_opacity
-        )
-
-    def set_penalty_parameters(
-        self,
-        rho_xyz: float,
-        rho_fdc: float,
-        rho_fr: float,
-        rho_s: float,
-        rho_q: float,
-        rho_o: float,
-    ):
-        self.rho_xyz = rho_xyz
-        self.rho_fdc = rho_fdc
-        self.rho_fr = rho_fr
-        self.rho_s = rho_s
-        self.rho_q = rho_q
-        self.rho_o = rho_o
-
-    def set_global_indices(self, global_indices: torch.Tensor):
-        self.global_indices = global_indices
-
-    def set_global_gaussians(
-        self,
-        global_xyz,
-        global_features_dc,
-        global_features_rest,
-        global_scaling,
-        global_quaternion,
-        global_opacity
-    ):
-        self.global_xyz = global_xyz
-        self.global_features_dc = global_features_dc
-        self.global_features_rest = global_features_rest
-        self.global_scaling = global_scaling
-        self.global_quaternion = global_quaternion
-        self.global_opacity = global_opacity
-
-    def enable_admm_training(self):
-        self.admm_enabled = True
-
     def add_admm_penalties(self, loss):
-        xyz = self.gaussians.get_xyz
-        features_dc = self.gaussians.get_features_dc
-        features_rest = self.gaussians.get_features_rest
-        scaling = self.gaussians.get_raw_scaling
-        quaternion = self.gaussians.get_raw_quaternion
-        opacity = self.gaussians.get_raw_opacity
-
-        xyz_penalty = 0.5 * self.rho_xyz * F.mse_loss(
-            xyz + self.u_xyz, self.global_xyz
-        )
-        feat_dc_penalty = 0.5 * self.rho_fdc * F.mse_loss(
-            features_dc + self.u_fdc, self.global_features_dc
-        )
-        feat_rest_penalty = 0.5 * self.rho_fr * F.mse_loss(
-            features_rest + self.u_fr, self.global_features_rest
-        )
-        scaling_penalty = 0.5 * self.rho_s * F.mse_loss(
-            scaling + self.u_s, self.global_scaling
-        )
-        quaternion_penalty = 0.5 * self.rho_q * F.mse_loss(
-            quaternion + self.u_q, self.global_quaternion
-        )
-        opacity_penalty = 0.5 * self.rho_o * F.mse_loss(
-            opacity + self.u_o, self.global_opacity
-        )
-
-        loss += xyz_penalty
-        loss += feat_dc_penalty
-        loss += feat_rest_penalty
-        loss += scaling_penalty
-        loss += quaternion_penalty
-        loss += opacity_penalty
-
-        self.scalars_to_log["train/xyz_penalty"] = xyz_penalty.detach().item()
-        self.scalars_to_log["train/feat_dc_penalty"] = feat_dc_penalty.detach().item()
-        self.scalars_to_log["train/feat_rest_penalty"] = feat_rest_penalty.detach().item()
-        self.scalars_to_log["train/scaling_penalty"] = scaling_penalty.detach().item()
-        self.scalars_to_log["train/quaternion_penalty"] = quaternion_penalty.detach().item()
-        self.scalars_to_log["train/opacity_penalty"] = opacity_penalty.detach().item()
-
-        return loss
-
-    def train_every_x_interval(self, data_batch, interval: int = 100):
-        for i in range(interval):  # pylint: disable=W0612
-            self.increment_iteration()
-            self.train_iteration(data_batch=data_batch)
+        raise NotImplementedError
 
     def train_iteration(self, data_batch) -> None:  # pylint: disable=W0613
         self.gaussians.train()
@@ -484,7 +349,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             return
 
         # Pick a random camera.
-        if (self.iteration - 1) % len(self.train_cameras) == 0:
+        if (self.iteration - 1) % len(self.train_cameras) == 0 or self.image_reader is None:
             random.shuffle(self.train_cameras)
             image_list = [camera.image_path for camera in self.train_cameras]
 
@@ -504,7 +369,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         camera.image = copy.deepcopy(image)
         resolution = self.training_resolution()
         camera_origin = camera.copy_to_device(self.device) \
-            if self.config.geometry.get("mask", False) else None
+            if self.mask is not None else None
         camera = camera.downsample(resolution).copy_to_device(self.device)
         self.scalars_to_log['train/resolution'] = resolution
 
@@ -520,7 +385,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             pipeline_config=self.config.pipeline,
             bkgd_color=self.color_bkgd,
             anti_aliasing=self.config.texture.anti_aliasing,
-            separate_sh=True,
+            separate_sh=False, # True,
             use_trained_exposure=self.config.appearance.use_trained_exposure,
             depth_threshold=self.config.geometry.depth_threshold,
             device=self.device,
@@ -538,7 +403,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         pixels = camera.image.permute(2, 0, 1)  # [RGB, height, width]
         # loss_ssim = ssim(pixels, colors)
         loss_ssim = fused_ssim(colors.unsqueeze(0), pixels.unsqueeze(0))
-        if self.config.geometry.get("mask", False):
+        if self.mask is not None:
             image_size = camera.image.shape[:-1]
             camera = camera_origin.downsample(32).copy_to_device(self.device)
             mask = self.mask(camera.image.permute(2, 0, 1),
@@ -592,7 +457,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                         if self.iteration > self.config.geometry.opacity_reset_interval else None
                     self.gaussians.densify_and_prune(
                         max_grad=self.config.geometry.densify_grad_threshold,
-                        min_opacity=0.005,
+                        min_opacity=self.config.geometry.min_opacity,
                         extent=self.spatial_lr_scale,
                         max_screen_size=size_threshold,
                         optimizer=self.optimizer,
@@ -619,9 +484,9 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
 
         # Optimizer step.
 
-        # self.optimizer.step()
-        visible = radii > 0
-        self.optimizer.step(visible, radii.shape[0])
+        self.optimizer.step()
+        # visible = radii > 0
+        # self.optimizer.step(visible, radii.shape[0])
         self.optimizer.zero_grad(set_to_none=True)
 
         if self.exposure_optimizer is not None:
@@ -693,8 +558,6 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         self.state_dicts["meta_data"]["denom"] = self.gaussians.denom
         self.state_dicts["meta_data"]["spatial_lr_scale"] = self.spatial_lr_scale
 
-        if self.config.dataset.multi_blocks:
-            self.state_dicts["meta_data"]["block_id"] = self.train_dataset.current_block
         self.state_dicts["meta_data"]["camera_poses"] = self.train_dataset.camtoworlds
 
     def load_checkpoint(

@@ -5,7 +5,8 @@ import torch
 
 from omegaconf import OmegaConf
 
-from diff_gaussian_rasterization import (
+# from diff_gaussian_rasterization import (
+from old_diff_gaussian_rasterization import (
     GaussianRasterizationSettings,
     GaussianRasterizer
 )
@@ -26,6 +27,12 @@ def render(
     separate_sh: bool = False,
     use_trained_exposure: bool = False,
     depth_threshold: float = 0.0,
+    # Deblur related parameters.
+    deblur_net: torch.nn.Module = None,
+    lambda_scale: float = 0.01,
+    lambda_position: float = 0.01,
+    use_position_offset: bool = False,
+    max_clamp: float = 1.1,
     device="cuda:0",
 ):
     # Create zero tensor. We will use it to make pytorch return
@@ -58,8 +65,9 @@ def render(
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=pipeline_config.debug,
-        antialiasing=anti_aliasing,
+        # antialiasing=anti_aliasing,
         depth_threshold=depth_threshold,
+        f_count=False,
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
@@ -110,6 +118,96 @@ def render(
     else:
         precomputed_colors = override_color
 
+    if deblur_net is not None:
+        _positions = means3D.detach()
+        _scales = scales.detach()
+        _rotations = rotations.detach()
+        _viewdirs = viewpoint_camera.camera_center.repeat(means3D.shape[0], 1)
+
+        delta_scales, delta_rotations, delta_positions = deblur_net(
+            _positions, _scales, _rotations, _viewdirs)
+        delta_scales = torch.clamp(
+            lambda_scale * delta_scales + (1 - lambda_scale), min=1.0, max=max_clamp)
+        delta_rotations = torch.clamp(
+            lambda_scale * delta_rotations + (1 - lambda_scale), min=1.0, max=max_clamp)
+
+        if not use_position_offset:  # Defocus blur.
+            scales = scales * delta_scales
+            rotations = rotations * delta_rotations
+        else:  # Motion blur.
+            delta_positions = lambda_position * delta_positions
+            # Reshape to M 3D Gaussian sets.
+            delta_positions = delta_positions.view(
+                -1, 3, deblur_net.num_gaussian_sets - 1)
+            delta_positions = torch.cat([
+                delta_positions,
+                torch.zeros((means3D.shape[0], 3, 1), dtype=means3D.dtype, device=means3D.device)
+            ], dim=-1)
+            delta_scales = delta_scales.view(-1,
+                                             3, deblur_net.num_gaussian_sets)
+            delta_rotations = delta_rotations.view(
+                -1, 4, deblur_net.num_gaussian_sets)
+
+            renders, radiis, depths = [], [], []
+            screen_space_points_set, visibility_filters = [], []
+            for i in range(deblur_net.num_gaussian_sets):
+                _screen_space_points = torch.zeros_like(
+                    gaussian_splat_model.get_xyz,
+                    dtype=gaussian_splat_model.get_xyz.dtype,
+                    requires_grad=True,
+                    device=device
+                ) + 0
+                try:
+                    _screen_space_points.retain_grad()
+                except:  # pylint: disable=W0702
+                    pass
+
+                _means2D = _screen_space_points
+                positions = means3D + delta_positions[..., i]
+                trans_scales = scales * delta_scales[..., i]
+                trans_rotations = rotations * delta_rotations[..., i]
+
+                if separate_sh:
+                    rendered_image, radii, depth = rasterizer(
+                        means3D=positions,
+                        means2D=_means2D,
+                        dc=dc,
+                        shs=spherical_harmonics,
+                        colors_precomp=precomputed_colors,
+                        opacities=opacity,
+                        scales=trans_scales,
+                        rotations=trans_rotations,
+                        cov3D_precomp=cov3D_precomp,
+                    )
+                else:
+                    # rendered_image, radii, depth = rasterizer(
+                    rendered_image, radii, depth, _, __ = rasterizer(
+                        means3D=positions,
+                        means2D=_means2D,
+                        shs=spherical_harmonics,
+                        colors_precomp=precomputed_colors,
+                        opacities=opacity,
+                        scales=trans_scales,
+                        rotations=trans_rotations,
+                        cov3D_precomp=cov3D_precomp,
+                    )
+                renders.append(rendered_image)
+                radiis.append(radii)
+                depths.append(depth)
+                screen_space_points_set.append(_screen_space_points)
+                visibility_filters.append(radii > 0)
+
+            rendered_image = sum(renders) / len(renders)
+            depth = sum(depths) / len(depths)
+            return {
+                "rendered_image": rendered_image,
+                "screen_space_points": screen_space_points_set,
+                "visibility_filter": visibility_filters,
+                "radii": radiis,
+                "scaling": scales,
+                "depth": depths,
+            }
+
     # Rasterize visible Gaussians to image to obtain their radii (on screen).
     if separate_sh:
         rendered_image, radii, depth = rasterizer(
@@ -124,7 +222,8 @@ def render(
             cov3D_precomp=cov3D_precomp,
         )
     else:
-        rendered_image, radii, depth = rasterizer(
+        # rendered_image, radii, depth = rasterizer(
+        rendered_image, radii, depth, _, __ = rasterizer(
             means3D=means3D,
             means2D=means2D,
             shs=spherical_harmonics,
