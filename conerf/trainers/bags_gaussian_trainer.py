@@ -205,7 +205,7 @@ class BagsTrainer(GaussianSplatTrainer):
             pipeline_config=self.config.pipeline,
             bkgd_color=self.color_bkgd,
             anti_aliasing=self.config.texture.anti_aliasing,
-            separate_sh=True,
+            separate_sh=False, # True,
             use_trained_exposure=self.config.appearance.use_trained_exposure,
             depth_threshold=self.config.geometry.depth_threshold,
             device=self.device,
@@ -344,9 +344,9 @@ class BagsTrainer(GaussianSplatTrainer):
 
         # Optimizer step.
 
-        # self.optimizer.step()
-        visible = radii > 0
-        self.optimizer.step(visible, radii.shape[0])
+        self.optimizer.step()
+        # visible = radii > 0
+        # self.optimizer.step(visible, radii.shape[0])
         self.optimizer.zero_grad(set_to_none=True)
 
         if self.exposure_optimizer is not None:
