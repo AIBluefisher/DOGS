@@ -46,15 +46,8 @@ CODE_ROOT_DIR=$HOME/'Projects/DOGS'
 
 cd $CODE_ROOT_DIR
 
-if [ `echo $DATASET | grep -c "admm" ` -gt 0 ]
-then
-    python -m conerf.trainers.admm_gaussian_trainer \
-              --config 'config/'${YAML} \
-              --suffix $SUFFIX
-else
-    python train.py --config 'config/'${YAML} \
-                    --suffix $SUFFIX \
-                    --model_folder $MODEL_FOLDER \
-                    --init_ply_type $INIT_PLY_TYPE \
-                    --load_specified_images
-fi
+python train.py --config 'config/'${YAML} \
+                --suffix $SUFFIX \
+                --model_folder $MODEL_FOLDER \
+                --init_ply_type $INIT_PLY_TYPE \
+                --load_specified_images

@@ -41,19 +41,25 @@ if __name__ == "__main__":
     config = load_config(args.config)
     config["config_file_path"] = args.config
 
-    assert config.dataset.scene != ""
+    assert config.dataset.scene != "" or args.scene != ""
 
     setup_seed(config.seed)
 
+    if args.val != -1:
+        config.dataset.val_interval = args.val
+
     scenes = []
-    if (
-        type(config.dataset.scene) == omegaconf.listconfig.ListConfig # pylint: disable=C0123
-    ):
-        scene_list = list(config.dataset.scene)
-        for sc in config.dataset.scene:
-            scenes.append(sc)
+    if args.scene != "":  # Overwrite scenes in config file.
+        scenes.append(args.scene)
     else:
-        scenes.append(config.dataset.scene)
+        if (
+            type(config.dataset.scene) == omegaconf.listconfig.ListConfig # pylint: disable=C0123
+        ):
+            scene_list = list(config.dataset.scene)
+            for sc in config.dataset.scene:
+                scenes.append(sc)
+        else:
+            scenes.append(config.dataset.scene)
 
     for scene in scenes:
         data_dir = os.path.join(config.dataset.root_dir, scene)

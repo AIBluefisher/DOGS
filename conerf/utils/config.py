@@ -32,7 +32,8 @@ OmegaConf.register_new_resolver('mul', lambda a, b: a * b)
 OmegaConf.register_new_resolver('divi', lambda a, b: a // b)
 OmegaConf.register_new_resolver(
     'calc_milestones',
-    lambda max_step, muls, divs: calc_milestones(max_step, muls, divs) # pylint: disable=W0108
+    lambda max_step, muls, divs: calc_milestones(
+        max_step, muls, divs)  # pylint: disable=W0108
 )
 
 
@@ -67,7 +68,11 @@ def config_parser():
     parser.add_argument("--load_specified_images",
                         action="store_true",
                         help="Only load the specified images to train.")
-    
+    parser.add_argument("--val",
+                        type=int,
+                        default=-1,
+                        help="Validation interval")
+
     ##################################### Block Training ########################################
     parser.add_argument("--block_id",
                         type=int,

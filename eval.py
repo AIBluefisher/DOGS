@@ -48,31 +48,29 @@ if __name__ == "__main__":
     # parse YAML config to OmegaConf
     config = load_config(args.config)
 
-    assert config.dataset.get("data_split_json", "") != "" or config.dataset.scene != ""
+    assert config.dataset.scene != "" or args.scene != ""
 
     setup_seed(config.seed)
 
-    scenes = []
-    if config.dataset.get("data_split_json", "") != "" and config.dataset.scene == "":
-        # For objaverse only.
-        with open(config.dataset.data_split_json, "r", encoding="utf-8") as fp:
-            obj_id_to_name = json.load(fp)
+    if args.val != -1:
+        config.dataset.val_interval = args.val
 
-        for idx, name in obj_id_to_name.items():
-            scenes.append(name)
-    elif (
-        type(config.dataset.scene) == omegaconf.listconfig.ListConfig # pylint: disable=C0123
-    ):  # pylint: disable=C0123
-        scene_list = list(config.dataset.scene)
-        for sc in config.dataset.scene:
-            scenes.append(sc)
+    scenes = []
+    if args.scene != "":  # Overwrite scenes in config file.
+        scenes.append(args.scene)
     else:
-        scenes.append(config.dataset.scene)
+        if (
+            type(config.dataset.scene) == omegaconf.listconfig.ListConfig # pylint: disable=C0123
+        ):
+            scene_list = list(config.dataset.scene)
+            for sc in config.dataset.scene:
+                scenes.append(sc)
+        else:
+            scenes.append(config.dataset.scene)
 
     for scene in scenes:
         data_dir = os.path.join(config.dataset.root_dir, scene)
-        if not os.path.exists(data_dir):
-            continue
+        assert os.path.exists(data_dir), f"Dataset does not exist: {data_dir}!"
 
         local_config = copy.deepcopy(config)
         local_config.expname = (
@@ -80,6 +78,9 @@ if __name__ == "__main__":
         )
         local_config.expname = local_config.expname + "_" + args.suffix
         local_config.dataset.scene = scene
+        local_config.dataset.model_folder = args.model_folder
+        local_config.dataset.init_ply_type = args.init_ply_type
+        local_config.dataset.load_specified_images = args.load_specified_images
 
         evaluator = create_evaluator(
             local_config,
@@ -91,6 +92,6 @@ if __name__ == "__main__":
             testset=None,
             verbose=True,
         )
-        evaluator.eval(split="val")
+        # evaluator.eval(split="val")
         evaluator.eval(split="test")
         evaluator.export_mesh()
