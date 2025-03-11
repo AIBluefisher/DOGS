@@ -7,3 +7,5 @@ submodules/simple-knn/build
 submodules/simple-knn/simple_knn.egg-info
 submodules/fused-ssim/build
 submodules/fused-ssim/fused_ssim.egg-info
+submodules/old_diff-gaussian-rasterization/build
+submodules/old_diff-gaussian-rasterization/old_diff_gaussian_rasterization.egg-info
