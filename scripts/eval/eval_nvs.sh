@@ -16,7 +16,6 @@ then
     SUFFIX=$2
 elif [ $NUM_CMD_PARAMS -eq 3 ]
 then
-    SUFFIX=$2
     DATASET=$3
 elif [ $NUM_CMD_PARAMS -eq 4 ]
 then
