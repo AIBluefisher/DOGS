@@ -15,8 +15,9 @@ dataset:
   apply_mask: false
   multi_blocks: false
   num_blocks: 1
-  scale: true
-  rotate: true
+  scale: false
+  rotate: false
+  use_manhattan_world: true
   batch_over_images: false
   model_folder: sparse
   init_ply_type: sparse
@@ -64,7 +65,10 @@ optimizer:
     quaternion: 0.001
     # Decoupled appearance encoding.
     mask: 0.001
-
+  # lr_pose:
+  #   rot: 5e-5
+  #   trans: 5e-5
+  
 geometry:
   percent_dense: 0.01
   depth_threshold: 0
@@ -75,8 +79,9 @@ geometry:
   opt_pose_start_iter: 3000
   densification_interval: 100
   opacity_reset_interval: 3000
+  min_opacity: 0.005
   densify_grad_threshold: 0.0002
-  mask: true # false
+  mask: false
 
 texture:
   max_sh_degree: 3
@@ -92,5 +97,5 @@ pipeline:
 
 loss:
   lambda_dssim: 0.2
-  lambda_scale: 0.01
+  lambda_scale: 0
   lambda_mask: 0

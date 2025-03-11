@@ -4,18 +4,18 @@ task: novel_view_synthesis
 seed: 42
 
 dataset:
-  name: tanks_and_temples
+  name: Tanks
   root_dir: /home/yuchen/datasets/${dataset.name}
-  scene: ["Family", "Francis", "Ignatius", "Train"]
+  scene: ["Ballroom", "Barn", "Church", "Family", "Francis", "Horse", "Ignatius", "Museum"]
   train_split: train
   val_split: val
   data_split_json: ""
-  factor: 2
+  factor: 1
   val_interval: 8
   apply_mask: false
   multi_blocks: false
   num_blocks: 1
-  scale: false
+  scale: false # true
   rotate: false
   use_manhattan_world: true
   batch_over_images: false
@@ -47,23 +47,14 @@ prune:
 
 optimizer:
   lr:
-    # Gaussian centers related.
     position_init: 0.00016
     position_final: 0.0000016
     position_delay_mult: 0.01
-    position_max_iterations: ${trainer.max_iterations}
-    # Exposure related.
-    exposure_lr_init: 0.01
-    exposure_lr_final: 0.001
-    exposure_lr_delay_steps: 0
-    exposure_lr_delay_mult: 0
-    exposure_max_iterations: ${trainer.max_iterations}
-    # Other 3D GS properties.
+    position_max_iterations: 30000
     feature: 0.0025
-    opacity: 0.025
+    opacity: 0.05
     scaling: 0.005
     quaternion: 0.001
-    # Decoupled appearance encoding.
     mask: 0.001
   # lr_pose:
   #   rot: 5e-5
@@ -71,9 +62,10 @@ optimizer:
 
 geometry:
   percent_dense: 0.01
-  depth_threshold: 0 # 0.37
+  depth_threshold: 0
   coarse-to-fine: false
   sample_more_high_resolution: false
+  kernel_size: 0.1
   densify_start_iter: 500
   densify_end_iter: 15000
   opt_pose_start_iter: 3000
