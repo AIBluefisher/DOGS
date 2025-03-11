@@ -5,7 +5,7 @@ seed: 42
 
 dataset:
   name: deblur
-  root_dir: /home/chenyu/HD_Datasets/datasets/${dataset.name}/synthetic_camera_motion_blur
+  root_dir: /home/user/datasets/${dataset.name}/synthetic_camera_motion_blur
   scene: ["blurcozy2room", "blurfactory", "blurpool", "blurtanabata", "blurwine"]
   train_split: train
   val_split: val
@@ -51,7 +51,7 @@ optimizer:
     position_init: 0.0016
     position_final: 0.000016
     position_delay_mult: 0.01
-    position_max_iterations: 30000 # ${trainer.max_iterations}
+    position_max_iterations: ${trainer.max_iterations}
     # Exposure related.
     exposure_lr_init: 0.01
     exposure_lr_final: 0.001

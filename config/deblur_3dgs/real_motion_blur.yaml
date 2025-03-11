@@ -5,20 +5,19 @@ seed: 42
 
 dataset:
   name: deblur
-  root_dir: /home/chenyu/HD_Datasets/datasets/${dataset.name}/real_camera_motion_blur
-  scene: ["blurball", "blurbasket", "blurbuick", "blurcoffee", "blurdecoration",
-          "blurgirl", "blurheron", "blurparterre", "blurpuppet", "blurstair"]
+  root_dir: /home/user/datasets/${dataset.name}/real_camera_motion_blur
+  scene: ["blurball", "blurbasket", "blurbuick", "blurcoffee", "blurdecoration", "blurgirl", "blurheron", "blurparterre", "blurpuppet", "blurstair"]
   train_split: train
   val_split: val
   data_split_json: ""
   factor: 4
-  val_interval: 8
+  val_interval: 7
   apply_mask: false
   multi_blocks: false
   num_blocks: 1
   scale: false
   rotate: false
-  use_manhattan_world: true
+  use_manhattan_world: false
   batch_over_images: false
   model_folder: sparse
   init_ply_type: sparse
