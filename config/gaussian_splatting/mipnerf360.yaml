@@ -6,7 +6,7 @@ seed: 42
 dataset:
   name: mipnerf360
   root_dir: /home/yuchen/datasets/${dataset.name}
-  scene: ["bicycle", "bonsai", "counter", "garden", "kitchen", "room", "stump", "flowers", "treehill"]
+  scene: bicycle # ["bicycle", "bonsai", "counter", "garden", "kitchen", "room", "stump", "flowers", "treehill"]
   train_split: train
   val_split: val
   data_split_json: ""
@@ -17,7 +17,7 @@ dataset:
   num_blocks: 1
   scale: false
   rotate: false
-  use_manhattan_world: true
+  use_manhattan_world: false # true
   batch_over_images: false
   model_folder: sparse
   init_ply_type: sparse
@@ -63,8 +63,12 @@ optimizer:
     opacity: 0.025
     scaling: 0.005
     quaternion: 0.001
+  lr_app:
     # Decoupled appearance encoding.
-    mask: 0.001
+    decouple_app_embed: 0.001
+    app_module: 0.001
+    app_embed: 0.0025
+    colors: 0.0025
   # lr_pose:
   #   rot: 5e-5
   #   trans: 5e-5
@@ -81,14 +85,17 @@ geometry:
   opacity_reset_interval: 3000
   min_opacity: 0.005
   densify_grad_threshold: 0.0002
-  mask: false
 
 texture:
   max_sh_degree: 3
   anti_aliasing: false
 
 appearance:
+  use_decoupled_app_embed: false
   use_trained_exposure: false
+  use_app_embed: false
+  app_feat_dim: 32
+  app_embed_dim: 16
 
 pipeline:
   convert_SHs_python: false

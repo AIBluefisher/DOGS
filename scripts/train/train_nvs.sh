@@ -49,5 +49,5 @@ cd $CODE_ROOT_DIR
 python train.py --config 'config/'${YAML} \
                 --suffix $SUFFIX \
                 --model_folder $MODEL_FOLDER \
-                --init_ply_type $INIT_PLY_TYPE \
-                --load_specified_images
+                --init_ply_type $INIT_PLY_TYPE # \
+                # --load_specified_images

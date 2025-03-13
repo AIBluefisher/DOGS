@@ -1,5 +1,8 @@
 import math
 import os
+import time
+from datetime import datetime
+import json
 
 from omegaconf import OmegaConf
 
@@ -64,6 +67,7 @@ class ImplicitReconTrainer(BaseTrainer):
             keep_checkpoint_every_n_hours=0.5,
             verbose=config.get('verbose', False),
         )
+        self.training_metric_file = os.path.join(self.output_path, 'train_metrics.json')
 
         self.train_done = False
         self.num_rays = self.config.dataset.get("num_rays", 256)
@@ -302,6 +306,9 @@ class ImplicitReconTrainer(BaseTrainer):
         desc += f" ({len(self.train_dataset)} images)"
         pbar = tqdm.trange(self.config.trainer.max_iterations,
                            desc=desc, leave=False)
+        time_start = time.time()
+        datetime_start = datetime.now()
+        peak_gpu_memory = 0
 
         iter_start = self.load_checkpoint(
             load_optimizer=not self.config.trainer.no_load_opt,
@@ -324,6 +331,8 @@ class ImplicitReconTrainer(BaseTrainer):
 
                 # log to tensorboard.
                 if self.iteration % self.config.trainer.n_tensorboard == 0:
+                    gpu_memory = torch.cuda.max_memory_allocated() / 1024**3
+                    peak_gpu_memory = max(gpu_memory, peak_gpu_memory)
                     self.log_info()
 
                 if self.iteration % (self.config.trainer.n_tensorboard * 100) == 0:
@@ -351,6 +360,19 @@ class ImplicitReconTrainer(BaseTrainer):
             self.save_checkpoint(score=score)
 
         self.train_done = True
+        
+        time_end = time.time()
+        datetime_end = datetime.now()
+        training_time = time_end - time_start
+        stats = {
+            "Start Date": datetime_start,
+            "End Date": datetime_end,
+            "Training Time": training_time,
+            "Peak GPU Memory": peak_gpu_memory,
+        }
+        json_obj = json.dumps(stats, indent=4, default=str)
+        with open(self.training_metric_file, 'w', encoding='utf-8') as json_file:
+            json_file.write(json_obj)
 
     def train_iteration(self, data_batch) -> None:
         raise NotImplementedError

@@ -17,8 +17,10 @@ from conerf.datasets.utils import (
 )
 # from conerf.loss.ssim_torch import ssim
 from conerf.model.gaussian_fields.gaussian_splat_model import GaussianSplatModel
-from conerf.model.gaussian_fields.masks import AppearanceEmbedding
-from conerf.render.gaussian_render import render
+from conerf.model.gaussian_fields.masks import DecoupledAppearanceEmbedding
+from conerf.model.gaussian_fields.pose_embed import CameraOptModule
+from conerf.model.gaussian_fields.app_embed import AppearanceOptModule
+from conerf.render.gaussian_render import render, render_gsplat
 from conerf.model.gaussian_fields.prune import calculate_v_imp_score, prune_list
 from conerf.trainers.implicit_recon_trainer import ImplicitReconTrainer
 from conerf.visualization.pose_visualizer import visualize_cameras
@@ -155,6 +157,8 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         point_cloud = fetch_ply(colmap_ply_path)
         self.gaussians.init_from_colmap_pcd(
             point_cloud,
+            # self.config.appearance.get("app_feat_dim", None),
+            app_feat_dim=None,
             image_idxs=self.train_camera_idxs
             if self.config.appearance.use_trained_exposure else None
         )
@@ -169,10 +173,33 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
             device=self.device,
         )
 
-        self.mask = None
+        # Decoupled appearance embedding.
+        self.dec_app_embedding = None
         if self.config.geometry.get("mask", False):
-            self.mask = AppearanceEmbedding(
+            self.dec_app_embedding = DecoupledAppearanceEmbedding(
                 len(self.train_dataset.cameras)).to(self.device)
+
+        # Appearance embedding.
+        self.app_embedding = None
+        self.app_module = None
+        if self.config.appearance.use_app_embed:
+            print('Use App Embedding!')
+            feature_dim = self.config.appearance.app_feat_dim
+            embed_dim = self.config.appearance.app_embed_dim
+            self.app_module = AppearanceOptModule(
+                len(self.train_dataset.cameras),
+                feature_dim,
+                embed_dim,
+                self.config.texture.max_sh_degree,
+            ).to(self.device)
+            # Initialize the last layer to be zero so that the initial output is zero.
+            torch.nn.init.zeros_(self.app_module.color_head[-1].weight)
+            torch.nn.init.zeros_(self.app_module.color_head[-1].bias)
+
+            features = torch.rand(
+                len(self.gaussians.get_xyz), feature_dim
+            ).to(self.device)
+            self.app_embedding = torch.nn.Parameter(features)
 
         self.init_gaussians()
 
@@ -189,6 +216,9 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         self.train_cameras = self.train_dataset.cameras.copy()
         self.train_camera_idxs = [
             camera.image_index for camera in self.train_cameras]
+        self.image_idx_to_global_index = {
+            idx: i for i, idx in enumerate(self.train_camera_idxs)
+        }
 
         spatial_lr_scale = self.config.geometry.get("spatial_lr_scale", -1)
         if spatial_lr_scale < 0:
@@ -206,6 +236,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         self.setup_appearance_mask_optimizer()
         self.setup_exposure_optimizer()
         self.setup_pose_optimizer()
+        self.setup_app_optimizer()
 
         lr_config = self.config.optimizer.lr
         self.xyz_scheduler = ExponentialLR(
@@ -223,14 +254,6 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                 'lr': lr_config.position_init * self.spatial_lr_scale, "name": "xyz",
             },
             {
-                'params': [self.gaussians.get_features_dc],
-                'lr': lr_config.feature, "name": "f_dc",
-            },
-            {
-                'params': [self.gaussians.get_features_rest],
-                'lr': lr_config.feature / 20.0, "name": "f_rest",
-            },
-            {
                 'params': [self.gaussians.get_raw_opacity],
                 'lr': lr_config.opacity, "name": "opacity",
             },
@@ -243,6 +266,25 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                 'lr': lr_config.quaternion, "name": "quaternion",
             },
         ]
+
+        if self.app_embedding is None:
+            lr_params.append({
+                'params': [self.gaussians.get_features_dc],
+                'lr': lr_config.feature, "name": "f_dc",
+            })
+            lr_params.append({
+                'params': [self.gaussians.get_features_rest],
+                'lr': lr_config.feature / 20.0, "name": "f_rest",
+            })
+        else:
+            lr_params.append({
+                'params': [self.gaussians.get_colors],
+                'lr': self.config.optimizer.lr_app.colors, "name": "colors",
+            })
+            lr_params.append({
+                'params': [self.app_embedding],
+                'lr': self.config.optimizer.lr_app.app_embed, "name": "app_embed",
+            })
 
         self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
         # self.optimizer = SparseGaussianAdam(lr_params, lr=0.0, eps=1e-15)
@@ -279,24 +321,51 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
         self.gt_poses = extract_pose_tensor_from_cameras(
             self.train_dataset.cameras)
 
-        pose_params = []
-        for camera in self.train_dataset.cameras:
-            if camera.image_index == 0:
-                print('skip image 0!')
-                continue
+        # pose_params = []
+        # for camera in self.train_dataset.cameras:
+        #     if camera.image_index == 0:
+        #         print('skip image 0!')
+        #         continue
 
-            pose_params.append({
-                "params": [camera.delta_rot],
-                "lr": self.config.optimizer.lr_pose.rot,
-                "name": f"rot_{camera.image_index}",
-            })
-            pose_params.append({
-                "params": [camera.delta_trans],
-                "lr": self.config.optimizer.lr_pose.trans,
-                "name": f"trans_{camera.image_index}",
-            })
+        #     pose_params.append({
+        #         "params": [camera.delta_rot],
+        #         "lr": self.config.optimizer.lr_pose.rot,
+        #         "name": f"rot_{camera.image_index}",
+        #     })
+        #     pose_params.append({
+        #         "params": [camera.delta_trans],
+        #         "lr": self.config.optimizer.lr_pose.trans,
+        #         "name": f"trans_{camera.image_index}",
+        #     })
 
-        self.pose_optimizer = torch.optim.Adam(pose_params)
+        # self.pose_optimizer = torch.optim.Adam(pose_params)
+        self.pose_adjust = CameraOptModule(
+            len(self.train_dataset.cameras)).to(self.device)
+        self.pose_adjust.zero_init()
+        self.pose_optimizer = torch.optim.Adam(
+            self.pose_adjust.parameters(),
+            lr=self.config.optimizer.lr_pose,
+            weight_decay=1e-6,
+        )
+        self.pose_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            self.pose_optimizer, gamma=0.01 ** (1.0 /
+                                                self.config.trainer.max_iterations)
+        )
+
+    def setup_app_optimizer(self):
+        self.app_optimizers = []
+        if self.config.appearance.use_app_embed:
+            self.app_optimizers = [
+                torch.optim.Adam(
+                    self.app_module.embeds.parameters(),
+                    lr=self.config.optimizer.lr_app.app_module * 10.0,
+                    weight_decay=1e-6,
+                ),
+                torch.optim.Adam(
+                    self.app_module.color_head.parameters(),
+                    lr=self.config.optimizer.lr_app.app_module,
+                )
+            ]
 
     def update_learning_rate(self):
         """Learning rate scheduling per step."""
@@ -379,15 +448,19 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
            (self.iteration > self.config.geometry.opt_pose_start_iter):
             image_index = camera.image_index
 
-        render_results = render(
+        global_index = self.image_idx_to_global_index[camera.image_index]
+        render_results = render_gsplat(
             gaussian_splat_model=self.gaussians,
             viewpoint_camera=camera,
             pipeline_config=self.config.pipeline,
             bkgd_color=self.color_bkgd,
             anti_aliasing=self.config.texture.anti_aliasing,
-            separate_sh=False, # True,
+            separate_sh=False,  # True,
             use_trained_exposure=self.config.appearance.use_trained_exposure,
             depth_threshold=self.config.geometry.depth_threshold,
+            app_embedding=self.app_embedding,
+            app_module=self.app_module,
+            global_index=global_index,
             device=self.device,
         )
         colors, screen_space_points, visibility_filter, radii = (
@@ -449,7 +522,7 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
                     radii[visibility_filter]
                 )
                 self.gaussians.add_densification_stats(
-                    screen_space_points, visibility_filter)
+                    screen_space_points, visibility_filter, pixels.shape[2], pixels.shape[1])
 
                 if self.iteration > self.config.geometry.densify_start_iter and \
                         self.iteration % self.config.geometry.densification_interval == 0:
@@ -503,6 +576,10 @@ class GaussianSplatTrainer(ImplicitReconTrainer):
 
         if self.pose_scheduler is not None:
             self.pose_scheduler.step()
+
+        for optimizer in self.app_optimizers:
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
 
         if self.iteration % self.config.trainer.n_checkpoint == 0:
             self.compose_state_dicts()

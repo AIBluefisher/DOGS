@@ -5,7 +5,7 @@ seed: 42
 
 dataset:
   name: deblur
-  root_dir: /home/user/datasets/${dataset.name}/synthetic_camera_motion_blur
+  root_dir: /home/yuchen/datasets/${dataset.name}/synthetic_camera_motion_blur
   scene: ["blurcozy2room", "blurfactory", "blurpool", "blurtanabata", "blurwine"]
   train_split: train
   val_split: val
@@ -108,7 +108,11 @@ deblur:
   points_bound: 10
 
 appearance:
+  use_decoupled_app_embed: false
   use_trained_exposure: false
+  use_app_embed: false
+  app_feat_dim: 32
+  app_embed_dim: 16
 
 pipeline:
   convert_SHs_python: false

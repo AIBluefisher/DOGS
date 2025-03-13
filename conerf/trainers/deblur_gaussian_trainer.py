@@ -9,7 +9,7 @@ import numpy as np
 
 from conerf.loss.ssim_torch import ssim
 from conerf.base.task_queue import ImageReader
-from conerf.render.gaussian_render import render
+from conerf.render.gaussian_render import render, render_gsplat
 from conerf.model.deblur.varnet import VarNet
 from conerf.trainers.gaussian_trainer import GaussianSplatTrainer
 
@@ -99,7 +99,7 @@ class DeblurGaussianSplatTrainer(GaussianSplatTrainer):
            (self.iteration > self.config.geometry.opt_pose_start_iter):
             image_index = camera.image_index
 
-        render_results = render(
+        render_results = render_gsplat(
             gaussian_splat_model=self.gaussians,
             viewpoint_camera=camera,
             pipeline_config=self.config.pipeline,
@@ -180,7 +180,7 @@ class DeblurGaussianSplatTrainer(GaussianSplatTrainer):
                         radii[visibility_filter]
                     )
                 self.gaussians.add_densification_stats(
-                    screen_space_points, visibility_filter)
+                    screen_space_points, visibility_filter, pixels.shape[2], pixels.shape[1])
 
                 if self.iteration > self.config.geometry.densify_start_iter and \
                         self.iteration % self.config.geometry.densification_interval == 0:

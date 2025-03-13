@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 
-class AppearanceEmbedding(nn.Module):
+class DecoupledAppearanceEmbedding(nn.Module):
     """
     Implementation of appearance embedding in the paper 
     VastGaussian: https://arxiv.org/abs/2402.17427
