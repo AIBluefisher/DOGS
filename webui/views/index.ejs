@@ -249,6 +249,51 @@
             gap: 0.75rem;
         }
 
+        /* Model Card Metadata */
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .card-date {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .card-stars {
+            display: flex;
+            align-items: center;
+            gap: 0.125rem;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 2.25rem;
+        }
+
         .btn-sm {
             padding: 0.5rem 1rem;
             font-size: 0.875rem;
@@ -584,6 +629,24 @@
                     if (model.path) {
                         model_name = model.path.substring(model.path.lastIndexOf('/') + 1);
                     }
+                    
+                    // Format the date nicely
+                    var displayDate = '';
+                    if (model.date) {
+                        try {
+                            // If date is in YYYY-MM-DD format
+                            const [year, month, day] = model.date.split('-');
+                            const dateObj = new Date(year, month - 1, day);
+                            displayDate = dateObj.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                            });
+                        } catch (e) {
+                            // If date is already formatted or in another format
+                            displayDate = model.date;
+                        }
+                    }
                 %>
                 <div class="model-card revealOnScroll" data-animation="fadeInUp" data-delay="<%= index * 100 %>">
                     <% if (model.thumb_image_path) { %>
@@ -594,16 +657,55 @@
                         </div>
                     <% } %>
                     <div class="card-content">
+                        <!-- Model Title (User entered) -->
                         <h3 class="card-title"><%= model.title || 'Untitled Model' %></h3>
+                        
+                        <!-- Upload Date and Metadata -->
+                        <div class="card-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <% if (displayDate) { %>
+                                <div class="card-date" style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">
+                                    <i class="fa fa-calendar" style="font-size: 0.7rem;"></i>
+                                    <span><%= displayDate %></span>
+                                </div>
+                            <% } %>
+                            
+                            <% if (model.stars > 0) { %>
+                                <div class="card-stars" style="display: flex; align-items: center; gap: 0.125rem;">
+                                    <% for (let i = 0; i < 5; i++) { %>
+                                        <% if (i < Math.floor(model.stars || 0)) { %>
+                                            <i class="fa fa-star" style="color: #fbbf24; font-size: 0.7rem;"></i>
+                                        <% } else { %>
+                                            <i class="fa fa-star-o" style="color: #d1d5db; font-size: 0.7rem;"></i>
+                                        <% } %>
+                                    <% } %>
+                                    <span style="margin-left: 0.125rem; color: var(--text-secondary); font-size: 0.7rem;">
+                                        <%= model.stars || 0 %>
+                                    </span>
+                                </div>
+                            <% } %>
+                        </div>
+                        
+                        <!-- Description -->
                         <% if (model.description) { %>
-                            <p class="card-subtitle"><%= model.description %></p>
+                            <p class="card-subtitle" style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 0.75rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; min-height: 2.25rem;">
+                                <%= model.description %>
+                            </p>
                         <% } %>
+                        
+                        <!-- Actions -->
                         <div class="card-actions">
+                            <% 
+                                var model_name = '';
+                                if (model.path) {
+                                    // Extract just the filename from /splats/filename.splat
+                                    model_name = model.path.substring(model.path.lastIndexOf('/') + 1);
+                                }
+                            %>
                             <a href="/viewer:<%= model_name %>" class="btn btn-primary btn-sm">
                                 <i class="fa fa-eye"></i> View
                             </a>
                             <% if (user) { %>
-                                <button class="btn btn-outline btn-sm">
+                                <button class="btn btn-outline btn-sm like-btn" data-model-id="<%= model.id %>">
                                     <i class="fa fa-heart"></i> Like
                                 </button>
                             <% } %>
@@ -612,7 +714,6 @@
                 </div>
             <% }) %>
         </div>
-
         <!-- Pagination -->
         <% if (totalPages > 1) { %>
             <div class="pagination-container">

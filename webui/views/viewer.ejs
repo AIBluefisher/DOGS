@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>3D Gaussian Splat Demo - NUS Plant</title>
+    <title>3D Gaussian Splat Viewer - <%= data.message %></title>
     <script type="text/javascript" src="./static/js/util.js"></script>
     <script type="importmap">
     {
@@ -16,60 +16,154 @@
     }
   </script>
     <style>
-
     body {
       background-color: #000000;
       height: 100vh;
       margin: 0px;
+      overflow: hidden;
     }
-
-  </style>
-
+    </style>
   </head>
 
   <body>
-    <p id="model_name" style="display: none;"><%= data.message %></p>
-
     <script type="module">
     import * as GaussianSplats3D from 'test/gaussian-splats-3d';
     import * as THREE from 'three';
     
-    var model_name = document.getElementById('model_name').textContent.substring(1);
-    console.log("model_name: %s", model_name);
+    // Get the model name from the server data
+    const modelName = '<%= data.message %>';
+    console.log("Loading model:", modelName);
     
-    var camera_up = [0, 0, 1];
-    var initial_camera_position = [-3.15634, -0.16946, -0.51552]
-    if (model_name == "truck") {
-      camera_up = [0, -1, -0.17];
-      initial_camera_position = [-5, -1, -1];
-    } else if (model_name == "stump") {
-      camera_up = [0, -1, -1.0];
-      initial_camera_position = [-3.3816, 1.96931, -1.71890];
+    // Create the correct URL for the splat file
+    // Use absolute path starting with /
+    let splatPath = '/splats/' + modelName;
+    
+    // Determine file extension
+    if (modelName.toLowerCase().endsWith('.splat') || 
+        modelName.toLowerCase().endsWith('.ksplat') || 
+        modelName.toLowerCase().endsWith('.ply')) {
+        // If modelName already has extension, use it as is
+        splatPath = '/splats/' + modelName;
+    } else {
+        // Add appropriate extension
+        splatPath = '/splats/' + modelName + '.splat';
     }
-
+    
+    console.log("Splat file path:", splatPath);
+    
+    // Set camera parameters based on model
+    var camera_up = [0, 0, 1];
+    var initial_camera_position = [-3.15634, -0.16946, -0.51552];
+    
+    // You can add more model-specific camera settings here
+    if (modelName.includes("truck")) {
+        camera_up = [0, -1, -0.17];
+        initial_camera_position = [-5, -1, -1];
+    } else if (modelName.includes("stump")) {
+        camera_up = [0, -1, -1.0];
+        initial_camera_position = [-3.3816, 1.96931, -1.71890];
+    }
+    
+    // Initialize the viewer
     const viewer = new GaussianSplats3D.Viewer({
-      'cameraUp': camera_up,
-      'initialCameraPosition': initial_camera_position,
-      // 'initialCameraLookAt': [1.52976, 2.27776, 1.65898]
+        'cameraUp': camera_up,
+        'initialCameraPosition': initial_camera_position,
+        'useBuiltInControls': true,
+        'antiAlias': true,
+        'fovy': 60
     });
     
-    // let path = 'static/assets/data/' + model_name;
-    let path = 'splats/' + model_name;
-    console.log("path: %s", path);
+    // Try to load the splat file
+    console.log("Attempting to load:", splatPath);
     
-    if (model_name == "truck" || model_name == "stump") {
-      path += '.ksplat' // isMobile() ? '.ksplat' : "_high.ksplat";
-    } else {
-      path += '.splat' // isMobile() ? '.splat' : '_high.splat';
-    }
-    viewer.addSplatScene(path, {
-      'streamView': true,
-      'progressiveLoad': true,
+    viewer.addSplatScene(splatPath, {
+        'streamView': true,
+        'progressiveLoad': true,
+        'onProgress': function(progress) {
+            console.log('Loading progress:', Math.round(progress * 100) + '%');
+        },
+        'onError': function(error) {
+            console.error('Failed to load splat file:', error);
+            // Display error message
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: white;
+                background: rgba(255, 0, 0, 0.7);
+                padding: 20px;
+                border-radius: 10px;
+                font-family: Arial, sans-serif;
+                text-align: center;
+                max-width: 80%;
+            `;
+            errorDiv.innerHTML = `
+                <h2>Failed to load model</h2>
+                <p>Error: ${error.message || 'Unknown error'}</p>
+                <p>URL: ${splatPath}</p>
+                <p>Please check the console for more details.</p>
+            `;
+            document.body.appendChild(errorDiv);
+        }
     })
     .then(() => {
+        console.log('Splat scene loaded successfully');
         viewer.start();
+        
+        // Add loading indicator removal
+        const loadingIndicator = document.getElementById('loading');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    })
+    .catch((error) => {
+        console.error('Failed to initialize viewer:', error);
     });
-  </script>
+    
+    // Add loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loading';
+    loadingDiv.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-family: Arial, sans-serif;
+        text-align: center;
+    `;
+    loadingDiv.innerHTML = `
+        <div style="font-size: 24px; margin-bottom: 20px;">Loading 3D Model...</div>
+        <div style="width: 100px; height: 4px; background: #333; margin: 0 auto; border-radius: 2px; overflow: hidden;">
+            <div id="progressBar" style="width: 0%; height: 100%; background: #4CAF50; transition: width 0.3s;"></div>
+        </div>
+    `;
+    document.body.appendChild(loadingDiv);
+    
+    // Optional: Add a back button
+    const backButton = document.createElement('button');
+    backButton.textContent = '← Back to Models';
+    backButton.style.cssText = `
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+    `;
+    backButton.onclick = () => {
+        window.history.back();
+    };
+    document.body.appendChild(backButton);
+    </script>
   </body>
-
 </html>

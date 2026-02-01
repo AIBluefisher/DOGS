@@ -19,6 +19,7 @@ db.serialize(function() {
     id INTEGER PRIMARY KEY, \
     owner_id INTEGER NOT NULL, \
     title TEXT NOT NULL, \
+    description TEXT DEFAULT '', \
     date DATE NOT NULL, \
     stars INTEGER NOT NULL, \
     thumb_image_path TEXT NOT NULL, \
