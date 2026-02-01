@@ -15,8 +15,8 @@ var SQLiteStore = require('connect-sqlite3')(session);
 
 const app = express();
 const port = 8080;
-const DEV_SPLATS_DIR = "/home/yuchen/Projects/ModelZooWeb/build/demo/public/assets/splats";
-const DEPLOY_SPLATS_DIR = "/data/yuchen/website/ModelZooWeb/build/demo/public/assets/splats";
+const DEV_SPLATS_DIR = "/Users/chenyu/Projects/DOGS/webui/build/demo/public/assets/splats";
+const DEPLOY_SPLATS_DIR = "/Users/chenyu/Projects/DOGS/webui/build/demo/public/assets/splats";
 
 app.use(body_parser.json());
 // app.use(cors());

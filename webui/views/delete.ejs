@@ -1,950 +1,929 @@
 <!DOCTYPE html>
-<!-- saved from url=(0022) -->
-<html lang="en-us"
-    class=" js flexbox flexboxlegacy canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths"><head><meta
-            http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <meta name="generator" content="Hugo 0.68.3">
-        <script src="./static/js/livereload.js" data-no-instant defer></script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Manage 3D Gaussian Splatting models">
+    <title>Manage Models - 3DGS Viewer</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="./static/fonts/font-awesome-4.7.0/css/font-awesome.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --dark-bg: #111827;
+            --light-bg: #f9fafb;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            --hover-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s ease;
+        }
 
-        <meta property="og:title" content="DOGS">
-        <meta property="og:description" content>
-        <meta property="og:type" content="website">
-        <meta property="og:url" content>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        <meta name="description"
-            content="Hardcoded description; the author should update :)">
-        <meta name="viewport"
-            content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <meta http-equiv="x-ua-compatible" content="ie=edge">
-        <title>DOGS</title>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            min-height: 100vh;
+        }
 
-        <link rel="icon" type="image/png"
-            href="./static/images/dogs.png">
-        <link href="./static/css/css" rel="stylesheet">
-        <link rel="stylesheet" type="text/css" href="./static/css/style.css">
-        <link rel="stylesheet" type="text/css"
-            href="./static/fonts/font-awesome-4.7.0/css/font-awesome.min.css">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" 
-            rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" 
-            crossorigin="anonymous">
+        /* Navigation */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
 
-        <style type="text/css">
-        .input-file-container {
+        .navbar-container {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            justify-self: center;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .logo img {
+            height: 40px;
+            width: 40px;
+            object-fit: contain;
+        }
+
+        .nav-links {
+            justify-self: end;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px -10px rgba(239, 68, 68, 0.15);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+        }
+
+        /* User Menu */
+        .user-menu {
             position: relative;
-            width: 225px;
-        } 
-        .input-file-trigger {
-            display: block;
-            margin-top: 20px;
-            padding: 20px 45px;
-            background: #4FC1EA;
-            color: white;
-            font-size: 1em;
-            transition: all .4s;
-            cursor: pointer;
         }
-        .input-file {
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .user-avatar:hover {
+            background: var(--primary-dark);
+        }
+
+        .dropdown-menu {
             position: absolute;
-            top: 0; left: 0;
-            width: 225px;
-            opacity: 0;
-            padding: 14px 0;
-            cursor: pointer;
-        }
-        .input-file:hover + .input-file-trigger,
-        .input-file:focus + .input-file-trigger,
-        .input-file-trigger:hover,
-        .input-file-trigger:focus {
-            background: #09769e;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: var(--hover-shadow);
+            padding: 0.5rem;
+            min-width: 200px;
+            display: none;
+            z-index: 1001;
         }
 
-        #FileUpload {
+        .user-menu:hover .dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .dropdown-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-color);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin-bottom: 3rem;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Manage Container */
+        .manage-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        .manage-card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: var(--card-shadow);
+            padding: 2.5rem;
+            margin-top: -2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .manage-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .manage-header h2 {
+            font-size: 1.875rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+        }
+
+        .manage-header p {
+            color: var(--text-secondary);
+            font-size: 1.125rem;
+        }
+
+        /* Models Table */
+        .models-table-container {
+            overflow-x: auto;
+            border-radius: 1rem;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 2rem;
+        }
+
+        .models-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        .models-table thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .models-table th {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .models-table tbody tr {
+            border-bottom: 1px solid #f3f4f6;
+            transition: var(--transition);
+        }
+
+        .models-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .models-table td {
+            padding: 1.25rem 1.5rem;
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        .model-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .model-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 0.75rem;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+        }
+
+        .model-details h4 {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .model-details p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .stars {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: #f59e0b;
+        }
+
+        .date {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+        }
+
+        .empty-state h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Pagination */
+        .pagination-container {
             display: flex;
             justify-content: center;
-        }
-        .wrapper {
-            margin: 30px;
-            padding: 30px;
-            box-shadow: 0 19px 38px rgba(0,0,0,0.30), 0 15px 12px rgba(0,0,0,0.22);
-            border-radius: 10px;
-            background-color: white;
-            width: 800px;
+            margin-top: 2rem;
         }
 
-        /* === Upload Box === */
-        .upload {
-            margin: 10px;
-            height: 165px;
-            border: 8px dashed #4FC1EA;
+        .pagination {
+            display: flex;
+            list-style: none;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .page-item {
+            margin: 0;
+        }
+
+        .page-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            height: 40px;
+            padding: 0 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            background: white;
+            color: #374151;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .page-link:hover:not(.active):not(:disabled) {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+            color: #111827;
+        }
+
+        .page-item.active .page-link {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .page-item.disabled .page-link {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f9fafb;
+            color: #9ca3af;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1002;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: var(--hover-shadow);
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            margin-bottom: 2rem;
+        }
+
+        .modal-body p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        /* Messages */
+        .message {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin: 1rem 0;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .message-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        footer {
+            background: rgba(0, 0, 0, 0.8);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-links {
             display: flex;
             justify-content: center;
-            align-items: center;
-            border-radius: 5px;
-        }
-        .upload p {
-            margin-top: 12px;
-            line-height: 0;
-            font-size: 22px;
-            letter-spacing: 1.5px;
-        }
-        .upload__button {
-            background-color: #4FC1EA;
-            border-radius: 10px;
-            padding: 0px 8px 0px 10px;
-        }
-        .upload__button:hover {
-            cursor: pointer;
-            opacity: 0.8;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
 
-        /* === Uploaded Files === */
-        .uploaded {
-            width: 375px;
-            margin: 10px;
-            background-color: #4FC1EA;
-            border-color: #4FC1EA;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
-            align-items: center;
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: var(--transition);
         }
-        .file {
-            display: flex;
-            flex-direction: column;
-        }
-        .file__name {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: baseline;
-            width: 300px;
-            line-height: 0;
-            color: white;
-            font-size: 18px;
-            letter-spacing: 1.5px;
-        }
-        .fa-times:hover {
-            cursor: pointer;
-            opacity: 0.8;
-        }
-        .fa-file {
-            padding: 15px;
-            font-size: 30px;
+
+        .footer-links a:hover {
             color: white;
         }
-        .fa-image {
-            padding: 15px;
-            font-size: 30px;
-            color: white;;
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar-container {
+                padding: 0 1rem;
+                grid-template-columns: auto 1fr;
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .hero {
+                padding: 3rem 1rem;
+            }
+            
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .manage-card {
+                padding: 1.5rem;
+                margin: -1rem 1rem 0;
+            }
+            
+            .models-table-container {
+                border-radius: 0.75rem;
+            }
+            
+            .models-table th,
+            .models-table td {
+                padding: 0.75rem 1rem;
+            }
+            
+            .model-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+            }
         }
+    </style>
+</head>
+<body>
 
-        </style>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div></div>
+            <a href="/" class="logo">
+                <img src="./static/images/dogs.png" alt="3DGS Viewer Logo">
+                <span>3DGS Viewer</span>
+            </a>
+            <div class="nav-links">
+                <% if (!user) { %>
+                    <a href="login" class="nav-link">Login</a>
+                    <a href="/signup" class="btn btn-primary">Sign Up</a>
+                <% } else { %>
+                    <div class="user-menu">
+                        <div class="user-avatar">
+                            <%= user.username.charAt(0).toUpperCase() %>
+                        </div>
+                        <div class="dropdown-menu">
+                            <span class="dropdown-item" style="font-weight: 600;">
+                                <i class="fa fa-user"></i> <%= user.username %>
+                            </span>
+                            <hr style="margin: 0.5rem 0; border-color: rgba(0,0,0,0.1);">
+                            <a href="#" class="dropdown-item">
+                                <i class="fa fa-cog"></i> Settings
+                            </a>
+                            <a href="/upload" class="dropdown-item">
+                                <i class="fa fa-upload"></i> Upload Model
+                            </a>
+                            <a href="/delete" class="dropdown-item">
+                                <i class="fa fa-trash"></i> Manage Models
+                            </a>
+                            <hr style="margin: 0.5rem 0; border-color: rgba(0,0,0,0.1);">
+                            <form action="/logout" method="post" style="margin: 0;">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer;">
+                                    <i class="fa fa-sign-out"></i> Sign Out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </nav>
 
-        <script type="importmap">
-  {
-      "imports": {
-          "three": "./static/lib/three.module.js",
-          "gaussian-splats-3d": "./static/lib/gaussian-splats-3d.module.js"
-      }
-  }
-    </script>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Manage Your Models</h1>
+            <p>View, manage, and delete your 3D Gaussian Splatting models</p>
+        </div>
+    </section>
 
-        <script>
-  let currentAlphaRemovalThreshold;
-  let currentCameraUpArray;
-  let currentCameraPositionArray;
-  let currentCameraLookAtArray;
-  </script>
+    <!-- Manage Container -->
+    <div class="manage-container">
+        <div class="manage-card">
+            <div class="manage-header">
+                <h2>Your 3D Models</h2>
+                <p>You have <%= models.length %> model(s) uploaded</p>
+            </div>
 
-    <script type="module">
-  import * as GaussianSplats3D from 'gaussian-splats-3d';
+            <% if (models && models.length > 0) { %>
+                <!-- Models Table -->
+                <div class="models-table-container">
+                    <table class="models-table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Date Uploaded</th>
+                                <th>Stars</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% models.forEach((model) => { %>
+                                <tr data-model-id="<%= model.id %>">
+                                    <td>
+                                        <div class="model-info">
+                                            <% if (model.thumb_image_path) { %>
+                                                <img src="<%= model.thumb_image_path %>" alt="<%= model.title %>" class="model-thumb">
+                                            <% } else { %>
+                                                <div class="model-thumb" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white;">
+                                                    <i class="fa fa-cube"></i>
+                                                </div>
+                                            <% } %>
+                                            <div class="model-details">
+                                                <h4><%= model.title || 'Untitled Model' %></h4>
+                                                <p>ID: <%= model.id %></p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="date"><%= model.date %></td>
+                                    <td>
+                                        <div class="stars">
+                                            <% for (let i = 0; i < 5; i++) { %>
+                                                <% if (i < Math.floor(model.stars || 0)) { %>
+                                                    <i class="fa fa-star"></i>
+                                                <% } else { %>
+                                                    <i class="fa fa-star-o"></i>
+                                                <% } %>
+                                            <% } %>
+                                            <span style="margin-left: 0.5rem; color: var(--text-secondary); font-size: 0.875rem;">
+                                                (<%= model.stars || 0 %>)
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm delete-btn" data-model-id="<%= model.id %>" data-model-title="<%= model.title || 'Untitled Model' %>">
+                                            <i class="fa fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
 
-  function convertPLYToSplatBuffer(plyBuffer, compressionLevel, alphaRemovalThreshold, blockSize, bucketSize) {
-    const plyParser = new GaussianSplats3D.PlyParser(plyBuffer);
-    return plyParser.parseToSplatBuffer(compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
-  }
+                <!-- Pagination -->
+                <% 
+                    const itemsPerPage = 8;
+                    // Use the values passed from backend, or calculate if not provided
+                    const totalPagesValue = totalPages || Math.ceil(row_count / itemsPerPage);
+                    const currentPageValue = page || 1;
+                %>
+                
+                <% if (totalPagesValue > 1) { %>
+                    <div class="pagination-container">
+                        <ul class="pagination">
+                            <!-- Previous Page -->
+                            <li class="page-item <%= currentPageValue === 1 ? 'disabled' : '' %>">
+                                <a class="page-link" href="/delete?page=<%= currentPageValue - 1 %>" aria-label="Previous">
+                                    <i class="fa fa-chevron-left"></i>
+                                </a>
+                            </li>
 
-  function convertStandardSplatToSplatBuffer(bufferData, compressionLevel, alphaRemovalThreshold, blockSize, bucketSize){
-    const splatArray = GaussianSplats3D.SplatLoader.parseStandardSplatToUncompressedSplatArray(bufferData);
-    const splatCompressor = new GaussianSplats3D.SplatCompressor(compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
-    return splatCompressor.uncompressedSplatArrayToSplatBuffer(splatArray);
-  }
+                            <!-- Page Numbers -->
+                            <% 
+                                let startPage = Math.max(1, currentPageValue - 2);
+                                let endPage = Math.min(totalPagesValue, currentPageValue + 2);
+                                
+                                if (startPage > 1) { %>
+                                    <li class="page-item">
+                                        <a class="page-link" href="/delete?page=1">1</a>
+                                    </li>
+                                    <% if (startPage > 2) { %>
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    <% }
+                                }
+                                
+                                for (let i = startPage; i <= endPage; i++) { %>
+                                    <li class="page-item <%= i === currentPageValue ? 'active' : '' %>">
+                                        <a class="page-link" href="/delete?page=<%= i %>"><%= i %></a>
+                                    </li>
+                                <% }
+                                
+                                if (endPage < totalPagesValue) { 
+                                    if (endPage < totalPagesValue - 1) { %>
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    <% } %>
+                                    <li class="page-item">
+                                        <a class="page-link" href="/delete?page=<%= totalPagesValue %>"><%= totalPagesValue %></a>
+                                    </li>
+                                <% } %>
 
-  function isPlyFile(fileName) {
-    return fileName.toLowerCase().trim().endsWith('.ply');
-  }
+                            <!-- Next Page -->
+                            <li class="page-item <%= currentPageValue === totalPagesValue ? 'disabled' : '' %>">
+                                <a class="page-link" href="/delete?page=<%= currentPageValue + 1 %>" aria-label="Next">
+                                    <i class="fa fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                <% } %>
 
-  function fileBufferToSplatBuffer(fileBufferData, isPly, isStandardSplat, compressionLevel, alphaRemovalThreshold, blockSize, bucketSize) {
-    let splatBuffer;
-    if (isPly) {
-      splatBuffer = convertPLYToSplatBuffer(fileBufferData, compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
-    } else {
-      if (isStandardSplat) {
-        splatBuffer = convertStandardSplatToSplatBuffer(fileBufferData, compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
-      } else {
-        splatBuffer = new GaussianSplats3D.SplatBuffer(fileBufferData);
-      }
-    }
-    return splatBuffer;
-  }
+            <% } else { %>
+                <!-- Empty State -->
+                <div class="empty-state">
+                    <i class="fa fa-cube"></i>
+                    <h3>No Models Found</h3>
+                    <p>You haven't uploaded any models yet.</p>
+                    <a href="/upload" class="btn btn-primary" style="margin-top: 1rem;">
+                        <i class="fa fa-upload"></i> Upload Your First Model
+                    </a>
+                </div>
+            <% } %>
 
-  window.onCompressionLevelChange = function(arg) {
-    const compressionLevel = parseInt(document.getElementById("compressionLevel").value);
-    if (isNaN(compressionLevel) || compressionLevel < 0 || compressionLevel > 1) {
-      return;
-    }
+            <!-- Success/Error Messages -->
+            <div class="message" id="successMessage">
+                <i class="fa fa-check-circle"></i> <span id="successText"></span>
+            </div>
 
-    for (let i = 1; i <= 3; i++) {
-      const element = document.getElementById('advancedCompressionRow' + i);
-      if (compressionLevel === 0) {
-        element.style.display = 'none';
-      } else {
-        element.style.display = '';
-      }
-    }
-  }
+            <div class="message" id="errorMessage">
+                <i class="fa fa-exclamation-circle"></i> <span id="errorText"></span>
+            </div>
+        </div>
+    </div>
 
-  window.onFileChange = function(arg, fileNameLabelID) {
-    const fileNameLabel = document.getElementById(fileNameLabelID);
-    const url = arg.value;
-    let lastForwardSlash = url.lastIndexOf('/');
-    let lastBackwardSlash = url.lastIndexOf('\\');
-    const lastSlash = Math.max(lastForwardSlash, lastBackwardSlash);
-    fileNameLabel.innerHTML = url.substring(lastSlash + 1);
-  }
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Delete Model</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="modelTitle"></strong>?</p>
+                <p style="color: var(--danger-color); font-size: 0.875rem; margin-top: 0.5rem;">
+                    <i class="fa fa-exclamation-triangle"></i> This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelDelete">Cancel</button>
+                <button class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
 
-  let conversionInProgress = false;
-  window.convertPlyFile = function() {
-    if (conversionInProgress) return;
-    const conversionFile = document.getElementById("conversionFile");
-    const compressionLevel = parseInt(document.getElementById("compressionLevel").value);
-    const alphaRemovalThreshold = parseInt(document.getElementById("alphaRemovalThreshold").value);
-    const blockSize = parseFloat(document.getElementById("blockSize").value);
-    const bucketSize = parseInt(document.getElementById("bucketSize").value);
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#">About</a>
+                <a href="#">Documentation</a>
+                <a href="#">API</a>
+                <a href="#">Contact</a>
+            </div>
+            <p style="margin-bottom: 1rem;">&copy; 2024 3DGS Viewer. All rights reserved.</p>
+            <p style="font-size: 0.875rem; opacity: 0.6;">Powered by 3D Gaussian Splatting technology</p>
+        </div>
+    </footer>
 
-    if (isNaN(compressionLevel) || compressionLevel < 0 || compressionLevel > 1) {
-      setConversionError("Invalid compression level.");
-      return;
-    } else if (isNaN(alphaRemovalThreshold) || alphaRemovalThreshold <0 || alphaRemovalThreshold > 255) {
-      setConversionError("Invalid alpha remval threshold.");
-      return;
-    } else if (isNaN(blockSize) || blockSize < 0.1) {
-      setConversionError("Invalid block size.");
-      return;
-    } else if (isNaN(bucketSize) || bucketSize < 2 || bucketSize > 65536) {
-      setConversionError("Invalid bucket size.");
-      return;
-    } else if (!conversionFile.files[0]) {
-      setConversionError("Please choose a file to convert.");
-      return;
-    }
-
-    setConversionError("");
-    const convertButton = document.getElementById("convertButton");
-
-    const conversionDone = (error) => {
-      if (error) {
-        console.error(error);
-        setConversionError("Could not convert file.");
-      } else {
-        setConversionStatus("Conversion complete!");
-        setConversionLoadingIconVisibility(false);
-        setConversionCheckIconVisibility(true);
-      }
-      convertButton.disabled = false;
-      conversionInProgress = false;
-    }
-
-    try {
-      const fileReader = new FileReader();
-      fileReader.onload = function(){
-        convertButton.disabled = true;
-        setConversionStatus("Parsing file...");
-        setConversionLoadingIconVisibility(true);
-        setConversionCheckIconVisibility(false);
-        const conversionFileName = conversionFile.files[0].name;
-        const isPly = isPlyFile(conversionFileName);
-        const isStandardSplat = GaussianSplats3D.SplatLoader.isStandardSplatFormat(conversionFileName);
-        window.setTimeout(() => {
-          try {
-            const splatBuffer = fileBufferToSplatBuffer(fileReader.result, isPly, isStandardSplat, compressionLevel,
-                                                        alphaRemovalThreshold, blockSize, bucketSize);
-            new GaussianSplats3D.SplatLoader(splatBuffer).downloadFile('converted_file.ksplat');
-            conversionDone();
-          } catch (e) {
-            conversionDone(e);
-          }
-        }, 100);
-      }
-      conversionInProgress = true;
-      setConversionStatus("Loading file...");
-      setConversionLoadingIconVisibility(true);
-      fileReader.readAsArrayBuffer(conversionFile.files[0]);
-    } catch (e) {
-      conversionDone(e);
-    }
-  }
-
-  function setConversionError(msg) {
-    setConversionLoadingIconVisibility(false);
-    setConversionCheckIconVisibility(false);
-    document.getElementById("conversionStatus").innerHTML = "";
-    document.getElementById("conversionError").innerHTML = msg;
-  }
-
-  function setConversionStatus(msg) {
-    document.getElementById("conversionError").innerHTML = "";
-    document.getElementById("conversionStatus").innerHTML = msg;
-  }
-
-  function setConversionLoadingIconVisibility(visible) {
-    document.getElementById('conversion-loading-icon').style.display = visible ? 'block' : 'none';
-  }
-
-  function setConversionCheckIconVisibility(visible) {
-    document.getElementById('check-icon').style.display = visible ? 'block' : 'none';
-  }
-
-  window.viewSplat = function() {
-
-    const viewFile = document.getElementById("viewFile");
-    const alphaRemovalThreshold = parseInt(document.getElementById("alphaRemovalThresholdView").value);
-
-    let cameraUpArray = document.getElementById("cameraUp").value;
-    let cameraPositionArray = document.getElementById("cameraPosition").value;
-    let cameraLookAtArray = document.getElementById("cameraLookAt").value;
-
-    cameraUpArray = cameraUpArray.split(',');
-    cameraPositionArray = cameraPositionArray.split(',');
-    cameraLookAtArray = cameraLookAtArray.split(',');
-
-    if (!viewFile.files[0]) {
-      setViewError("Please choose a file to view.");
-      return;
-    } else if (isNaN(alphaRemovalThreshold) || alphaRemovalThreshold < 0 || alphaRemovalThreshold > 255) {
-      setViewError("Invalid alpha remval threshold.");
-      return;
-    }
-
-    if (cameraUpArray.length !== 3) {
-      setViewError("Camera up must contain 3 elements.");
-      return;
-    }
-
-    if (cameraPositionArray.length !== 3) {
-      setViewError("Camera position must contain 3 elements.");
-      return;
-    }
-
-    if (cameraLookAtArray.length !== 3) {
-      setViewError("Camera look-at must contain 3 elements.");
-      return;
-    }
-
-    for (let i = 0; i < 3; i++) {
-      cameraUpArray[i] = parseFloat(cameraUpArray[i]);
-      cameraPositionArray[i] = parseFloat(cameraPositionArray[i]);
-      cameraLookAtArray[i] = parseFloat(cameraLookAtArray[i]);
-
-      if (isNaN(cameraUpArray[i])) {
-        setViewError("Invalid camera up.");
-        return;
-      }
-
-      if (isNaN(cameraPositionArray[i])) {
-        setViewError("Invalid camera position.");
-        return;
-      }
-
-      if (isNaN(cameraLookAtArray[i])) {
-        setViewError("Invalid camera look-at.");
-        return;
-      }
-    }
-
-    const viewFileName = viewFile.files[0].name;
-    const isPly = isPlyFile(viewFileName);
-    const isStandardSplat = GaussianSplats3D.SplatLoader.isStandardSplatFormat(viewFileName);
-
-    currentAlphaRemovalThreshold = alphaRemovalThreshold;
-    currentCameraUpArray = cameraUpArray;
-    currentCameraPositionArray = cameraPositionArray;
-    currentCameraLookAtArray = cameraLookAtArray;
-    try {
-      const fileReader = new FileReader();
-      fileReader.onload = function(){
-        try {
-         runViewer(fileReader.result, isPly, isStandardSplat, alphaRemovalThreshold, cameraUpArray, cameraPositionArray, cameraLookAtArray);
-        } catch (e) {
-          setViewError("Could not view scene.");
-        }
-      }
-      setViewStatus("Loading scene...");
-      fileReader.readAsArrayBuffer(viewFile.files[0]);
-    } catch (e) {
-      console.error(e);
-      setViewError("Could not view scene.");
-    }
-  }
-
-  function setViewError(msg) {
-    setViewLoadingIconVisibility(false);
-    document.getElementById("viewStatus").innerHTML = "";
-    document.getElementById("viewError").innerHTML = msg;
-  }
-
-  function setViewStatus(msg) {
-    setViewLoadingIconVisibility(true);
-    document.getElementById("viewError").innerHTML = "";
-    document.getElementById("viewStatus").innerHTML = msg;
-  }
-
-  function setViewLoadingIconVisibility(visible) {
-    document.getElementById('view-loading-icon').style.display = visible ? 'block' : 'none';
-  }
-
-  window.addEventListener("popstate", (event) => {
-    if (currentAlphaRemovalThreshold !== undefined) {
-      window.location = 'index.html?art=' + currentAlphaRemovalThreshold + '&cu=' + currentCameraUpArray + "&cp=" + currentCameraPositionArray + "&cla=" + currentCameraLookAtArray;
-    } else {
-      window.location = 'index.html';
-    }
-  });
-
-  function runViewer(splatBufferData, isPly, isStandardSplat, alphaRemovalThreshold, cameraUpArray, cameraPositionArray, cameraLookAtArray) {
-    const viewerOptions = {
-      'cameraUp': cameraUpArray,
-      'initialCameraPosition': cameraPositionArray,
-      'initialCameraLookAt': cameraLookAtArray,
-      'halfPrecisionCovariancesOnGPU': true,
-    };
-    const splatBufferOptions = {
-      'splatAlphaRemovalThreshold': alphaRemovalThreshold
-    };
-
-    const splatBuffer = fileBufferToSplatBuffer(splatBufferData, isPly, isStandardSplat, 0, alphaRemovalThreshold);
-    document.getElementById("demo-content").style.display = 'none';
-    document.body.style.backgroundColor = "#000000";
-    history.pushState("ViewSplat", null);
-    const viewer = new GaussianSplats3D.Viewer(viewerOptions);
-    viewer.addSplatBuffers([splatBuffer], [splatBufferOptions])
-    .then(() => {
-        viewer.start();
-    });
-  }
-
-  </script>
-
+    <!-- Scripts -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var buttons = document.querySelectorAll('.btn-danger');
-            buttons.forEach(function(button) {
-                button.addEventListener('click', function(e) {
-                    var row = e.target.closest('tr');
-                    var row_data = Array.from(row.cells).map(cell => cell.innerText);
-                    // alert(row_data)
-                    // Sending the data with Fetch API
-                    fetch('/delete/?_csrf=<%=csrfToken%>', {
+            const deleteButtons = document.querySelectorAll('.delete-btn');
+            const deleteModal = document.getElementById('deleteModal');
+            const cancelDeleteBtn = document.getElementById('cancelDelete');
+            const confirmDeleteBtn = document.getElementById('confirmDelete');
+            const modelTitle = document.getElementById('modelTitle');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const successText = document.getElementById('successText');
+            const errorText = document.getElementById('errorText');
+
+            let modelToDelete = null;
+
+            // Delete button click
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    modelToDelete = {
+                        id: this.dataset.modelId,
+                        title: this.dataset.modelTitle
+                    };
+                    modelTitle.textContent = modelToDelete.title;
+                    deleteModal.style.display = 'flex';
+                });
+            });
+
+            // Cancel delete
+            cancelDeleteBtn.addEventListener('click', function() {
+                deleteModal.style.display = 'none';
+                modelToDelete = null;
+            });
+
+            // Confirm delete
+            confirmDeleteBtn.addEventListener('click', async function() {
+                if (!modelToDelete) return;
+
+                // Disable button and show loading
+                confirmDeleteBtn.disabled = true;
+                confirmDeleteBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Deleting...';
+
+                try {
+                    const response = await fetch('/delete', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            // If you are dealing with sessions or CSRF tokens, you should include them here
+                            'X-CSRF-Token': '<%= csrfToken %>'
                         },
-                        body: JSON.stringify({ row_data: row_data })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data);
-                        // Handle any further actions based on server response
-                        
-                        // Display a success alert
-                        alert(data.message);
-
-                        // Optionally, you can reset the form
-                        form.reset();
-                    })
-                    .catch((error) => {
-                        console.error('Error:', error);
+                        body: JSON.stringify({
+                            row_data: [modelToDelete.id]
+                        })
                     });
-                });
+
+                    if (!response.ok) {
+                        throw new Error('Delete failed');
+                    }
+
+                    const data = await response.json();
+                    
+                    // Show success message
+                    showMessage('success', data.message || 'Model deleted successfully!');
+                    
+                    // Close modal
+                    deleteModal.style.display = 'none';
+                    
+                    // Remove the row from the table
+                    const row = document.querySelector(`tr[data-model-id="${modelToDelete.id}"]`);
+                    if (row) {
+                        row.style.transition = 'all 0.3s ease';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(-20px)';
+                        
+                        setTimeout(() => {
+                            row.remove();
+                            
+                            // Check if table is empty
+                            const tbody = document.querySelector('.models-table tbody');
+                            if (tbody.children.length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+                    }
+                    
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    showMessage('error', 'Failed to delete model. Please try again.');
+                } finally {
+                    // Reset button
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.innerHTML = 'Delete';
+                    modelToDelete = null;
+                }
             });
+
+            // Close modal when clicking outside
+            deleteModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    deleteModal.style.display = 'none';
+                    modelToDelete = null;
+                }
+            });
+
+            // Show message function
+            function showMessage(type, text) {
+                // Hide all messages first
+                successMessage.style.display = 'none';
+                errorMessage.style.display = 'none';
+                
+                if (type === 'success') {
+                    successText.textContent = text;
+                    successMessage.style.display = 'block';
+                } else {
+                    errorText.textContent = text;
+                    errorMessage.style.display = 'block';
+                }
+                
+                // Auto hide after 5 seconds
+                setTimeout(() => {
+                    if (type === 'success') {
+                        successMessage.style.display = 'none';
+                    } else {
+                        errorMessage.style.display = 'none';
+                    }
+                }, 5000);
+            }
+
+            // Initialize pagination
+            const currentPage = <%= page || 1 %>;
+            const totalPages = <%= totalPages || 1 %>;
+            
+            // Update page info if needed
+            if (totalPages > 0) {
+                console.log(`Page ${currentPage} of ${totalPages}`);
+            }
         });
-
-        // document.addEventListener('DOMContentLoaded', function () {
-        //     const itemsPerPage = 8;
-        //     let currentPage = 1;
-        //     const totalItems = 100;
-        //     const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-        //     function fetchItems(page) {
-        //         fetch('/delete?page=${page}')
-        //             .then(response => response.json())
-        //             .then(data => {
-        //                 console.log('data: ', data);
-        //                 populateTable(data);
-        //                 updatePaginationControls(page);
-        //             })
-        //             .catch(error => console.error('Error fetching data:', error));
-        //     }
-
-        //     function populateTable(items) {
-        //         console.log(items)
-        //         const model_table = document.getElementById('model-table');
-        //         model_table.innerHTML = ''; // Clear current content
-        //         items.forEach(item => {
-        //             const row = model_table.insertRow();
-        //             row.innerHTML = `<td class="table-light">${item.id}</td>` +
-        //                             `<td class="table-light">${item.name}</td>` +
-        //                             `<td class="table-light">${item.date}</td>` +
-        //                             `<td class="table-light">${item.stars}</td>` +
-        //                             `<td class="table-light"><button class="btn btn-danger" type="submit">Delete</button>`;
-        //         });
-        //     }
-
-        //     function updatePaginationControls(page) {
-        //         // Handle previous button visibility
-        //         document.getElementById('previous').parentElement.classList.toggle('disabled', page === 1);
-
-        //         // Handle next button visibility
-        //         document.getElementById('next').parentElement.classList.toggle('disabled', page === totalPages);
-        //     }
-
-        //     // Add event listeners to your pagination links
-        //     document.getElementById('previous').addEventListener('click', function (e) {
-        //         e.preventDefault();
-        //         if (currentPage > 1) {
-        //             currentPage--;
-        //             fetchItems(currentPage);
-        //         }
-        //     });
-
-        //     document.getElementById('next').addEventListener('click', function (e) {
-        //         e.preventDefault();
-        //         if (currentPage < totalPages) {
-        //             currentPage++;
-        //             fetchItems(currentPage);
-        //         }
-        //     });
-
-        //     // Initial display
-        //     fetchItems(currentPage);
-        // });
-
     </script>
-
-    </head>
-
-    <body style="overflow: visible;" data-new-gr-c-s-check-loaded="14.1149.0"
-        data-gr-ext-installed>
-
-        <div id="preloader" style="display: none;">
-            <div id="status" style="display: none;"></div>
-        </div>
-
-        <section class="hero is-fullheight is-default is-bold">
-
-            <nav class="navbar is-fresh is-transparent no-shadow"
-                role="navigation"
-                aria-label="main navigation">
-                <div class="container">
-                    <div class="navbar-brand">
-                        <a class="navbar-item" href="/">
-                            <img src="./static/images/dogs.png" alt>
-                        </a>
-                        <a
-                            class="navbar-item is-hidden-desktop is-hidden-tablet">
-                            <div id="menu-icon-wrapper"
-                                class="menu-icon-wrapper"
-                                style="visibility: visible;">
-                                <svg width="1000px" height="1000px">
-                                    <path class="path1"
-                                        d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                                    <path class="path2"
-                                        d="M 300 500 L 700 500"></path>
-                                    <path class="path3"
-                                        d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                                </svg>
-                                <button id="menu-icon-trigger"
-                                    class="menu-icon-trigger"></button>
-                            </div>
-                        </a>
-
-                        <a role="button" class="navbar-burger" aria-label="menu"
-                            aria-expanded="false" data-target="navbar-menu">
-                            <span aria-hidden="true"></span>
-                            <span aria-hidden="true"></span>
-                            <span aria-hidden="true"></span>
-                        </a>
-                    </div>
-
-                    <div id="navbar-menu" class="navbar-menu is-static">
-                        <div class="navbar-start">
-                            <a href class="navbar-item is-secondary">
-                                Features
-                            </a>
-                            <a href class="navbar-item is-secondary">
-                                Pricing
-                            </a>
-                            <div class="navbar-item has-dropdown is-hoverable">
-                                <a class="navbar-link">
-                                    Dropdown
-                                </a>
-
-                                <div class="navbar-dropdown">
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                </div>
-                            </div>
-                            <% if (!user) { %>
-                            <a href="login" class="navbar-item is-secondary">
-                                Log in
-                            </a>
-                            <a href="/signup" class="navbar-item">
-                                <span
-                                    class="button signup-button rounded secondary-btn raised">
-                                    Sign up
-                                </span>
-                            </a>
-                            <% } %>
-                        </div>
-
-                        <% if (user) { %>
-                        <div class="navbar-end">
-                            <a href class="navbar-item">
-                                <span class="icon"><i class="fa fa-user"
-                                        style="padding-left: 5px;"><%=
-                                        user.username %></i></span>
-                            </a>
-                            <a class="navbar-item is-hidden-mobile">
-                                <div id="menu-icon-wrapper"
-                                    class="menu-icon-wrapper"
-                                    style="visibility: visible;">
-                                    <svg width="1000px" height="1000px">
-                                        <path class="path1"
-                                            d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                                        <path class="path2"
-                                            d="M 300 500 L 700 500"></path>
-                                        <path class="path3"
-                                            d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                                    </svg>
-                                    <button id="menu-icon-trigger"
-                                        class="menu-icon-trigger"></button>
-                                </div>
-                            </a>
-                        </div>
-                        <% } %>
-
-                    </div>
-                </div>
-            </nav>
-
-            <nav id="navbar-clone" class="navbar is-fresh is-transparent"
-                role="navigation" aria-label="main navigation">
-                <div class="container">
-                    <div class="navbar-brand">
-                        <a class="navbar-item" href="/">
-                            <img src="./static/images/dogs.png" alt>
-                        </a>
-                        <a
-                            class="navbar-item is-hidden-desktop is-hidden-tablet">
-                            <div id="menu-icon-wrapper"
-                                class="menu-icon-wrapper"
-                                style="visibility: visible;">
-                                <svg width="1000px" height="1000px">
-                                    <path class="path1"
-                                        d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                                    <path class="path2"
-                                        d="M 300 500 L 700 500"></path>
-                                    <path class="path3"
-                                        d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                                </svg>
-                                <button id="menu-icon-trigger"
-                                    class="menu-icon-trigger"></button>
-                            </div>
-                        </a>
-
-                        <a role="button" class="navbar-burger" aria-label="menu"
-                            aria-expanded="false"
-                            data-target="cloned-navbar-menu">
-                            <span aria-hidden="true"></span>
-                            <span aria-hidden="true"></span>
-                            <span aria-hidden="true"></span>
-                        </a>
-                    </div>
-
-                    <div id="cloned-navbar-menu" class="navbar-menu is-fixed">
-                        <div class="navbar-start">
-                            <a href class="navbar-item is-secondary">
-                                Features
-                            </a>
-                            <a href class="navbar-item is-secondary">
-                                Pricing
-                            </a>
-                            <div class="navbar-item has-dropdown is-hoverable">
-                                <a class="navbar-link">
-                                    Dropdown
-                                </a>
-
-                                <div class="navbar-dropdown">
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                    <a href class="navbar-item">
-                                        Dropdown item
-                                    </a>
-                                </div>
-                            </div>
-                            <% if (!user) { %>
-                            <a href class="navbar-item is-secondary">
-                                Log in
-                            </a>
-                            <a href class="navbar-item">
-                                <span
-                                    class="button signup-button rounded secondary-btn raised">
-                                    Sign up
-                                </span>
-                            </a>
-                            <% } %>
-                        </div>
-
-                        <% if (user) { %>
-                        <div class="navbar-end">
-                            <a href class="navbar-item">
-                                <span class="icon"><i class="fa fa-user"
-                                        style="padding-left: 5px;"><%=
-                                        user.username %></i></span>
-                            </a>
-                            <a class="navbar-item is-hidden-mobile">
-                                <div id="cloned-menu-icon-wrapper"
-                                    class="menu-icon-wrapper"
-                                    style="visibility: visible;">
-                                    <svg width="1000px" height="1000px">
-                                        <path class="path1"
-                                            d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                                        <path class="path2"
-                                            d="M 300 500 L 700 500"></path>
-                                        <path class="path3"
-                                            d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                                    </svg>
-                                    <button id="cloned-menu-icon-trigger"
-                                        class="menu-icon-trigger"></button>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                    <% } %>
-                </div>
-            </nav>
-
-            <div class="hero-body">
-                <div class="container">
-                    <div id="FileUpload">
-                        <div class="wrapper">
-                            <% const ITEMS_PER_PAGE = 8; %>
-                                <table class="table table-hover align-middle" id="model-table">
-                                    <thead>
-                                        <tr>
-                                            <th class="table-light">Model Id</th>
-                                            <th class="table-light">Name</th>
-                                            <th class="table-light">Date</th>
-                                            <th class="table-light">Stars</th>
-                                            <th class="table-light">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% const num_models = models.length; %>
-                                        <% var i = 0; %>
-                                        <% for (i = 0; i < num_models; i++) { %>
-                                            <tr>
-                                                <td class="table-light"><%= models[i].id %></td>
-                                                <td class="table-light"><%= models[i].title %></td>
-                                                <td class="table-light"><%= models[i].date %></td>
-                                                <td class="table-light"><%= models[i].stars %></td>
-                                                <td class="table-light">
-                                                    <button class="btn btn-danger" type="submit">Delete
-                                                </button>
-                                                </td>
-                                            </tr>
-                                        <% } %>
-                                    </tbody>
-                                </table>
-                            </form>
-                            <ul class="pagination">
-                                <li class="page-item">
-                                  <a class="page-link" aria-label="Previous" id="previous">
-                                    <span aria-hidden="true">&laquo;</span>
-                                    <span class="sr-only">Previous</span>
-                                  </a>
-                                </li>
-                                <% var i = 1; %>
-                                <% for (i = 1; i < row_count / ITEMS_PER_PAGE + 1; i++) { %>
-                                    <li class="page-item"><a class="page-link"><%= i %></a></li>
-                                <% } %>
-                                <li class="page-item">
-                                  <a class="page-link" aria-label="Next" id="next">
-                                    <span aria-hidden="true">&raquo;</span>
-                                    <span class="sr-only">Next</span>
-                                  </a>
-                                </li>
-                              </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <img src="./static/images/dogs.png">
-                <a class="sidebar-close" href="javascript:void(0);">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24"
-                        height="24"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="feather feather-x"><line x1="18" y1="6" x2="6"
-                            y2="18"></line><line x1="6" y1="6" x2="18"
-                            y2="18"></line></svg>
-                </a>
-            </div>
-            <div class="inner">
-                <ul class="sidebar-menu">
-                    <li class="have-children">
-                        <a href="#">
-                            <span class="fa fa-user"></span>
-                            User
-                        </a>
-                        <ul>
-                            <li>
-                                <a href>
-                                    Profile
-                                </a>
-                            </li>
-                            <li>
-                                <a href>
-                                    Account
-                                </a>
-                            </li>
-                            <li>
-                                <a href>
-                                    Settings
-                                </a>
-                            </li>
-
-                        </ul>
-                    </li>
-                    <li class="have-children">
-                        <a href="#">
-                            <span class="fa fa-envelope"></span>
-                            Messages
-                        </a>
-                        <ul>
-                            <li>
-                                <a href>
-                                    Inbox
-                                </a>
-                            </li>
-                            <li>
-                                <a href>
-                                    Compose
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li class="have-children">
-                        <a href="#">
-                            <span class="fa fa-image"></span>
-                            Images
-                        </a>
-                        <ul>
-                            <li>
-                                <a href>
-                                    Library
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/upload">
-                                  Upload
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/delete">
-                                  Delete
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li class="have-children">
-                        <a href="#">
-                            <span class="fa fa-cog"></span>
-                            Settings
-                        </a>
-                        <ul>
-                            <li>
-                                <a href>
-                                    User settings
-                                </a>
-                            </li>
-                            <li>
-                                <a href>
-                                    App settings
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div id="backtotop"><a href="#"></a></div>
-
-        <script src="./static/js/jquery.min.js"></script>
-        <script src="./static/js/feather-icons"></script>
-        <script src="./static/js/fresh.js"></script>
-        <script src="./static/js/jquery.panelslider.min.js"></script>
-        <script src="./static/js/modernizr.min.js"></script>
-
-    </body>
-    <grammarly-desktop-integration data-grammarly-shadow-root="true">
-        <template shadowrootmode="open">
-            <style>
-      div.grammarly-desktop-integration {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-        -moz-user-select: none;
-        -webkit-user-select: none;
-        -ms-user-select:none;
-        user-select:none;
-      }
-
-      div.grammarly-desktop-integration:before {
-        content: attr(data-content);
-      }
-    </style>
-            <div aria-label="grammarly-integration" role="group" tabindex="-1"
-                class="grammarly-desktop-integration"
-                data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}">
-            </div>
-        </template>
-    </grammarly-desktop-integration>
-
+</body>
 </html>

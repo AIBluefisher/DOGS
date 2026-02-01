@@ -1,362 +1,772 @@
 <!DOCTYPE html>
-<!-- saved from url=(0022) -->
-<html lang="en-us"
-  class=" js flexbox flexboxlegacy canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths"><head><meta
-      http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="generator" content="Hugo 0.68.3">
-    <script src="./static/js/livereload.js" data-no-instant defer></script>
-
-    <meta property="og:title" content="DOGS">
-    <meta property="og:description" content>
-    <meta property="og:type" content="website">
-    <meta property="og:url" content>
-
-    <meta name="description"
-      content="Hardcoded description; the author should update :)">
-    <meta name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>DOGS</title>
-
-    <link rel="icon" type="image/png" href="./static/images/dogs.png">
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Visualize 3D Gaussian Splatting models online">
+    <title>3DGS Viewer - Visualize 3D Models</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="./static/css/css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="./static/css/style.css">
     <link rel="stylesheet" type="text/css" href="./static/fonts/font-awesome-4.7.0/css/font-awesome.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #10b981;
+            --dark-bg: #111827;
+            --light-bg: #f9fafb;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            --hover-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s ease;
+        }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  </head>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            min-height: 100vh;
+        }
 
-  <body style="overflow: visible;" data-new-gr-c-s-check-loaded="14.1149.0"
-    data-gr-ext-installed>
+        /* Navigation */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
 
-    <div id="preloader" style="display: none;">
-      <div id="status" style="display: none;"></div>
-    </div>
+        .navbar-container {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            width: 100%;
+        }
 
-    <section class="is-default is-bold">
+        .logo {
+            justify-self: center;
+        }
 
-      <nav class="navbar is-fresh is-transparent no-shadow" role="navigation"
-        aria-label="main navigation">
-        <div class="container">
-          <div class="navbar-brand">
-            <a class="navbar-item" href="/">
-              <img src="./static/images/dogs.png">
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .logo img {
+            height: 40px;
+            width: 40px;
+            object-fit: contain;
+        }
+
+        .nav-links {
+            justify-self: end;
+            margin-right: 12rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: var(--transition);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .hero {
+            padding: 6rem 2rem;
+            text-align: center;
+            color: white;
+            background: linear-gradient(rgba(99, 102, 241, 0.9), rgba(79, 70, 229, 0.9));
+            border-radius: 0 0 2rem 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Models Section */
+        .models-section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.125rem;
+        }
+
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+.model-card {
+    background: white;
+    border-radius: 1rem;
+    overflow: hidden; /* Keep this for child content */
+    transition: all 0.3s ease;
+    box-shadow: var(--card-shadow);
+    position: relative;
+    /* Remove any border/outline from the main card */
+}
+
+/* Create a wrapper for the border that won't be clipped */
+.model-card::before {
+    content: '';
+    position: absolute;
+    top: -2px; /* Adjust for border thickness */
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 2px solid transparent;
+    border-radius: 1rem; /* Same as card border-radius */
+    pointer-events: none; /* Allows clicking through */
+    z-index: 2; /* Ensure it's above the image */
+    transition: all 0.3s ease;
+}
+
+.model-card:hover::before {
+    border-color: var(--primary-color);
+}
+
+.model-card:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--hover-shadow);
+}
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+/* Pagination Styles */
+.pagination-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
+.page-item {
+    margin: 0;
+}
+
+.page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: white;
+    color: #374151;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.page-link:hover:not(.active):not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #111827;
+}
+
+.page-item.active .page-link {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+    font-weight: 600;
+}
+
+.page-item.disabled .page-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f9fafb;
+    color: #9ca3af;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    height: 40px;
+    padding: 0 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: white;
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f9fafb;
+    color: #9ca3af;
+}
+
+.page-info {
+    color: #6b7280;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+/* Ensure consistent spacing */
+.pagination-controls .pagination-btn,
+.pagination .page-link {
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+        /* User Menu */
+        .user-menu {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .user-avatar:hover {
+            background: var(--primary-dark);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: var(--hover-shadow);
+            padding: 0.5rem;
+            min-width: 200px;
+            display: none;
+            z-index: 1001;
+        }
+
+        .user-menu:hover .dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .dropdown-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+            }
+            
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .models-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pagination-controls {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            color: #111827;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="navbar-container" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;">
+            <!-- Empty left column -->
+            <div></div>
+            
+            <!-- Centered logo -->
+            <a href="/" class="logo" style="justify-self: center;">
+                <img src="./static/images/dogs.png" alt="3DGS Viewer Logo">
+                <span>3DGS Viewer</span>
             </a>
-            <a class="navbar-item is-hidden-desktop is-hidden-tablet">
-              <div id="menu-icon-wrapper" class="menu-icon-wrapper"
-                style="visibility: visible;">
-                <svg width="1000px" height="1000px">
-                  <path class="path1"
-                    d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                  <path class="path2" d="M 300 500 L 700 500"></path>
-                  <path class="path3"
-                    d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                </svg>
-                <button id="menu-icon-trigger"
-                  class="menu-icon-trigger"></button>
-              </div>
-            </a>
-
-            <a role="button" class="navbar-burger" aria-label="menu"
-              aria-expanded="false" data-target="navbar-menu">
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-            </a>
-          </div>
-
-          <div id="navbar-menu" class="navbar-menu is-static">
-
-            <div class="navbar-start">
-              <% if (!user) { %>
-              <a href="login" class="navbar-item is-secondary">
-                Log in
-              </a>
-              <a href="/signup" class="navbar-item">
-                <span class="button signup-button rounded secondary-btn raised">
-                  Sign up
-                </span>
-              </a>
-              <% } %>
+            
+            <!-- Right-aligned nav-links -->
+            <div class="nav-links">
+                <% if (!user) { %>
+                    <a href="login" class="nav-link">Login</a>
+                    <a href="/signup" class="btn btn-primary">Sign Up</a>
+                <% } else { %>
+                      <div class="user-menu">
+                            <div class="user-avatar">
+                                <%= user.username.charAt(0).toUpperCase() %>
+                            </div>
+                            <div class="dropdown-menu">
+                                <span class="dropdown-item" style="font-weight: 600;">
+                                    <i class="fa fa-user"></i> <%= user.username %>
+                                </span>
+                                <hr style="margin: 0.5rem 0; border-color: rgba(0,0,0,0.1);">
+                                <a href="#" class="dropdown-item">
+                                    <i class="fa fa-cog"></i> Settings
+                                </a>
+                                <a href="/upload" class="dropdown-item">
+                                    <i class="fa fa-upload"></i> Upload Model
+                                </a>
+                                <a href="/delete" class="dropdown-item">
+                                    <i class="fa fa-trash"></i> Manage Models
+                                </a>
+                                <hr style="margin: 0.5rem 0; border-color: rgba(0,0,0,0.1);">
+                                <form action="/logout" method="post" style="margin: 0;">
+                                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                    <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer;">
+                                        <i class="fa fa-sign-out"></i> Sign Out
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                <% } %>
             </div>
+        </div>
+    </nav>
 
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Visualize 3D Gaussian Splatting</h1>
+            <p>Explore and interact with stunning 3D models rendered in real-time using the latest Gaussian Splatting technology</p>
             <% if (user) { %>
-              <div class="navbar-end">
-                <a href class="navbar-item">
-                  <span class="icon"><i class="fa fa-user" style="padding-left: 5px;"><%= user.username %></i></span>
+                <a href="/upload" class="btn btn-primary">
+                    <i class="fa fa-plus"></i> Upload Your Model
                 </a>
-                <a class="navbar-item is-hidden-mobile">
-                  <div id="menu-icon-wrapper" class="menu-icon-wrapper"
-                    style="visibility: visible;">
-                    <svg width="1000px" height="1000px">
-                      <path class="path1"
-                        d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                      <path class="path2" d="M 300 500 L 700 500"></path>
-                      <path class="path3"
-                        d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                    </svg>
-                    <button id="menu-icon-trigger"
-                      class="menu-icon-trigger"></button>
-                  </div>
+            <% } else { %>
+                <a href="/signup" class="btn btn-primary">
+                    <i class="fa fa-rocket"></i> Get Started Free
                 </a>
-              </div>
             <% } %>
-
-          </div>
         </div>
-      </nav>
-
-      <nav id="navbar-clone" class="navbar is-fresh is-transparent"
-        role="navigation" aria-label="main navigation">
-        <div class="container">
-          <div class="navbar-brand">
-            <a class="navbar-item" href="/">
-              <img src="./static/images/dogs.png" alt>
-            </a>
-            <!-- <a class="navbar-item is-hidden-desktop is-hidden-tablet">
-              <div id="menu-icon-wrapper" class="menu-icon-wrapper"
-                style="visibility: visible;">
-                <svg width="1000px" height="1000px">
-                  <path class="path1"
-                    d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                  <path class="path2" d="M 300 500 L 700 500"></path>
-                  <path class="path3"
-                    d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                </svg>
-                <button id="menu-icon-trigger"
-                  class="menu-icon-trigger"></button>
-              </div>
-            </a> -->
-
-            <a role="button" class="navbar-burger" aria-label="menu"
-              aria-expanded="false" data-target="cloned-navbar-menu">
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-            </a>
-          </div>
-
-          <div id="cloned-navbar-menu" class="navbar-menu is-fixed">
-            <div class="navbar-start">
-              <% if (!user) { %>
-              <a href class="navbar-item is-secondary">
-                Log in
-              </a>
-              <a href class="navbar-item">
-                <span class="button signup-button rounded secondary-btn raised">
-                  Sign up
-                </span>
-              </a>
-              <% } %>
-            </div>
-
-            <% if (user) { %>
-            <div class="navbar-end">
-              <a href class="navbar-item">
-                <span class="icon"><i class="fa fa-user" style="padding-left: 5px;"><%= user.username %></i></span>
-              </a>
-              <!-- <a class="navbar-item is-hidden-mobile">
-                <div id="cloned-menu-icon-wrapper" class="menu-icon-wrapper"
-                  style="visibility: visible;">
-                  <svg width="1000px" height="1000px">
-                    <path class="path1"
-                      d="M 300 400 L 700 400 C 900 400 900 750 600 850 A 400 400 0 0 1 200 200 L 800 800"></path>
-                    <path class="path2" d="M 300 500 L 700 500"></path>
-                    <path class="path3"
-                      d="M 700 600 L 300 600 C 100 600 100 200 400 150 A 400 380 0 1 1 200 800 L 800 200"></path>
-                  </svg>
-                  <button id="cloned-menu-icon-trigger"
-                    class="menu-icon-trigger"></button>
-                </div>
-              </a> -->
-            </div>
-          </div>
-          <% } %>
-        </div>
-      </nav>
     </section>
 
-    <section class="section section-feature-grey is-medium" id="section1">
-      <div class="container">
-        <div class="title-wrapper has-text-centered">
-          <h2 class="title is-2">Online Models</h2>
-          <h3 class="subtitle is-5 is-muted">visit the physical world
-            online</h3>
-          <div class="divider is-centered"></div>
-        </div>
-
-        <div class="content-wrapper">
-          <% var index = 0; %>
-          <% const num_models = models.length; %>
-          <% for (index = 0; index < num_models; index +=4) { %>
-            <div class="columns">
-              <% var j = 0; %>
-              <% for (j = 0; j < 4 && index+j < num_models; j++) { %>
-              <% var model_path = models[index+j].path; %>
-              <% var model_name = model_path.substring(model_path.lastIndexOf('/') + 1); %>
-              <div class="column is-one-quater">
-                <div 
-                  class="feature-card is-bordered has-text-centered revealOnScroll delay-1"
-                  data-animation="fadeInLeft">
-                  <div class="card-title">
-                    <h4><%= models[index+j].title %></h4>
-                  </div> <!--end card-title-->
-                  <div class="card-icon">
-                    <img src="<%= models[index+j].thumb_image_path %>" class="demo-scene-panel-image">
-                  </div> <!--end card-icon-->
-                  <div class="card-action">
-                    <a class="button btn-align-md accent-btn raised" href="/viewer:<%= model_name %>">
-                      View Model
-                    </a>
-                  </div> <!--end card-action-->
-                </div> <!--end feature-card-->
-              </div> <!--end column-one-quarter-->
-              <% } %>
-            </div>
-          <% } %>
-        </div> <!--end content-wrapper -->
-
-      </div>
-    </section>
-
-
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <img src="./static/images/dogs.png">
-        <a class="sidebar-close" href="javascript:void(0);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            class="feather feather-x"><line x1="18" y1="6" x2="6"
-              y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </a>
-      </div>
-      <div class="inner">
-        <ul class="sidebar-menu">
-          <li class="have-children">
-            <a href="#">
-              <span class="fa fa-user"></span>
-              User
-            </a>
-            <ul>
-              <li>
-                <a href>
-                  Profile
-                </a>
-              </li>
-              <li>
-                <a href>
-                  Account
-                </a>
-              </li>
-              <li>
-                <a href>
-                  Settings
-                </a>
-              </li>
-              <li>
-                <form action="/logout" method="post">
-                  <button class="logout" type="submit">Sign out</button>
-                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                </form>
-              </li>
-            </ul>
-          </li>
-          <li class="have-children">
-            <a href="#">
-              <span class="fa fa-envelope"></span>
-              Messages
-            </a>
-            <ul>
-              <li>
-                <a href>
-                  Inbox
-                </a>
-              </li>
-              <li>
-                <a href>
-                  Compose
-                </a>
-              </li>
-            </ul>
-          </li>
-          <li class="have-children">
-            <a href="#">
-              <span class="fa fa-image"></span>
-              Models
-            </a>
-            <ul>
-              <li>
-                <a href="/upload">
-                  Upload
-                </a>
-              </li>
-              <li>
-                <a href="/delete">
-                  Delete
-                </a>
-              </li>
-            </ul>
-          </li>
-          <li class="have-children">
-            <a href="#">
-              <span class="fa fa-cog"></span>
-              Settings
-            </a>
-            <ul>
-              <li>
-                <a href>
-                  User settings
-                </a>
-              </li>
-              <li>
-                <a href>
-                  App settings
-                </a>
-              </li>
-            </ul>
-          </li>
-        </ul>
-      </div>
+<!-- Models Section -->
+<section class="models-section">
+    <div class="section-header">
+        <h2 style="color: #111827;">Explore 3D Models</h2>
+        <p style="color: #111827;">Browse through our collection of high-quality 3D Gaussian Splatting models</p>
     </div>
 
-    <div id="backtotop"><a href="#"></a></div>
+    <% if (models && models.length > 0) { %>
+        <div class="models-grid">
+            <% models.forEach((model, index) => { %>
+                <% 
+                    var model_name = '';
+                    if (model.path) {
+                        model_name = model.path.substring(model.path.lastIndexOf('/') + 1);
+                    }
+                %>
+                <div class="model-card revealOnScroll" data-animation="fadeInUp" data-delay="<%= index * 100 %>">
+                    <% if (model.thumb_image_path) { %>
+                        <img src="<%= model.thumb_image_path %>" alt="<%= model.title || '3D Model' %>" class="card-image">
+                    <% } else { %>
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 200px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="fa fa-cube" style="font-size: 3rem;"></i>
+                        </div>
+                    <% } %>
+                    <div class="card-content">
+                        <h3 class="card-title"><%= model.title || 'Untitled Model' %></h3>
+                        <% if (model.description) { %>
+                            <p class="card-subtitle"><%= model.description %></p>
+                        <% } %>
+                        <div class="card-actions">
+                            <a href="/viewer:<%= model_name %>" class="btn btn-primary btn-sm">
+                                <i class="fa fa-eye"></i> View
+                            </a>
+                            <% if (user) { %>
+                                <button class="btn btn-outline btn-sm">
+                                    <i class="fa fa-heart"></i> Like
+                                </button>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
 
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+            <div class="pagination-container">
+                <div class="pagination-controls">
+                    <% if (page > 1) { %>
+                        <a href="/?page=<%= page - 1 %>&pageSize=<%= pageSize %>" class="pagination-btn">
+                            <i class="fa fa-chevron-left"></i> Previous
+                        </a>
+                    <% } else { %>
+                        <button class="pagination-btn" disabled>
+                            <i class="fa fa-chevron-left"></i> Previous
+                        </button>
+                    <% } %>
+
+                    <span class="page-info">
+                        Showing <%= startIndex + 1 %> - <%= endIndex %> of <%= totalModels %> models
+                        (Page <%= page %> of <%= totalPages %>)
+                    </span>
+
+                    <% if (page < totalPages) { %>
+                        <a href="/?page=<%= page + 1 %>&pageSize=<%= pageSize %>" class="pagination-btn">
+                            Next <i class="fa fa-chevron-right"></i>
+                        </a>
+                    <% } else { %>
+                        <button class="pagination-btn" disabled>
+                            Next <i class="fa fa-chevron-right"></i>
+                        </button>
+                    <% } %>
+                </div>
+
+                <ul class="pagination">
+                    <!-- First Page -->
+                    <% if (page > 1) { %>
+                        <li class="page-item">
+                            <a class="page-link" href="/?page=1&pageSize=<%= pageSize %>">1</a>
+                        </li>
+                    <% } %>
+
+                    <!-- Ellipsis for skipped pages -->
+                    <% if (page > 3) { %>
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    <% } %>
+
+                    <!-- Previous Page -->
+                    <% if (page > 2) { %>
+                        <li class="page-item">
+                            <a class="page-link" href="/?page=<%= page - 1 %>&pageSize=<%= pageSize %>"><%= page - 1 %></a>
+                        </li>
+                    <% } %>
+
+                    <!-- Current Page -->
+                    <li class="page-item active">
+                        <span class="page-link"><%= page %></span>
+                    </li>
+
+                    <!-- Next Page -->
+                    <% if (page < totalPages - 1) { %>
+                        <li class="page-item">
+                            <a class="page-link" href="/?page=<%= page + 1 %>&pageSize=<%= pageSize %>"><%= page + 1 %></a>
+                        </li>
+                    <% } %>
+
+                    <!-- Ellipsis for skipped pages -->
+                    <% if (page < totalPages - 2) { %>
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    <% } %>
+
+                    <!-- Last Page -->
+                    <% if (page < totalPages) { %>
+                        <li class="page-item">
+                            <a class="page-link" href="/?page=<%= totalPages %>&pageSize=<%= pageSize %>"><%= totalPages %></a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        <% } %>
+    <% } else { %>
+        <div class="empty-state">
+            <i class="fa fa-cube"></i>
+            <h3>No Models Available</h3>
+            <p>Be the first to upload a 3D model!</p>
+            <% if (user) { %>
+                <a href="/upload" class="btn btn-primary" style="margin-top: 1rem;">
+                    <i class="fa fa-upload"></i> Upload Your First Model
+                </a>
+            <% } else { %>
+                <a href="/signup" class="btn btn-primary" style="margin-top: 1rem;">
+                    <i class="fa fa-user-plus"></i> Sign Up to Get Started
+                </a>
+            <% } %>
+        </div>
+    <% } %>
+</section>
+
+    <!-- Footer -->
+    <footer style="background: rgba(0, 0, 0, 0.8); color: rgba(255, 255, 255, 0.7); padding: 3rem 2rem; text-align: center; margin-top: 4rem;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                <a href="#" style="color: rgba(255, 255, 255, 0.7); text-decoration: none;">About</a>
+                <a href="#" style="color: rgba(255, 255, 255, 0.7); text-decoration: none;">Documentation</a>
+                <a href="#" style="color: rgba(255, 255, 255, 0.7); text-decoration: none;">API</a>
+                <a href="#" style="color: rgba(255, 255, 255, 0.7); text-decoration: none;">Contact</a>
+            </div>
+            <p style="margin-bottom: 1rem;">&copy; 2024 3DGS Viewer. All rights reserved.</p>
+            <p style="font-size: 0.875rem; opacity: 0.6;">Powered by 3D Gaussian Splatting technology</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
     <script src="./static/js/jquery.min.js"></script>
     <script src="./static/js/feather-icons"></script>
     <script src="./static/js/fresh.js"></script>
     <script src="./static/js/jquery.panelslider.min.js"></script>
     <script src="./static/js/modernizr.min.js"></script>
 
-  </body>
-  <grammarly-desktop-integration data-grammarly-shadow-root="true">
-    <template shadowrootmode="open">
-      <style>
-      div.grammarly-desktop-integration {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-        -moz-user-select: none;
-        -webkit-user-select: none;
-        -ms-user-select:none;
-        user-select:none;
-      }
+    <script>
+        // Scroll animation
+        $(document).ready(function() {
+            $('.revealOnScroll').each(function() {
+                var delay = $(this).data('delay') || 0;
+                $(this).css('animation-delay', delay + 'ms');
+            });
 
-      div.grammarly-desktop-integration:before {
-        content: attr(data-content);
-      }
-    </style>
-      <div aria-label="grammarly-integration" role="group" tabindex="-1"
-        class="grammarly-desktop-integration"
-        data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}">
-      </div>
-    </template>
-  </grammarly-desktop-integration>
+            // Smooth scroll
+            $('a[href^="#"]').on('click', function(e) {
+                e.preventDefault();
+                var target = $(this.getAttribute('href'));
+                if (target.length) {
+                    $('html, body').animate({
+                        scrollTop: target.offset().top - 80
+                    }, 1000);
+                }
+            });
 
+            // Like button functionality
+            $('.btn-outline').on('click', function(e) {
+                e.preventDefault();
+                var $btn = $(this);
+                if ($btn.hasClass('liked')) {
+                    $btn.removeClass('liked');
+                    $btn.html('<i class="fa fa-heart"></i> Like');
+                    $btn.css('color', 'var(--primary-color)');
+                } else {
+                    $btn.addClass('liked');
+                    $btn.html('<i class="fa fa-heart"></i> Liked');
+                    $btn.css('color', '#ef4444');
+                }
+            });
+
+        });
+    </script>
+</body>
 </html>
