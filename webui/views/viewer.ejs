@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 
-  <head>
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>3D Gaussian Splat Viewer - <%= data.message %></title>
+    <meta name="description" content="3D Gaussian Splatting Viewer - Visualize <%= data.message %> in real-time">
+    <title><%= data.message %> - 3DGS Viewer</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="./static/fonts/font-awesome-4.7.0/css/font-awesome.min.css">
+    
     <script type="text/javascript" src="./static/js/util.js"></script>
     <script type="importmap">
     {
@@ -14,38 +20,905 @@
             "test/gaussian-splats-3d": "./static/lib/gaussian-splats-3d.module.js"
         }
     }
-  </script>
+    </script>
+    
     <style>
-    body {
-      background-color: #000000;
-      height: 100vh;
-      margin: 0px;
-      overflow: hidden;
-    }
-    </style>
-  </head>
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #10b981;
+            --dark-bg: #111827;
+            --light-bg: #f9fafb;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            --hover-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.4);
+            --transition: all 0.3s ease;
+            --glass-bg: rgba(17, 24, 39, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
 
-  <body>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            color: var(--text-primary);
+        }
+
+        /* Viewer Container */
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Canvas Container */
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Header */
+        .viewer-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.5rem 2rem;
+            background: linear-gradient(to bottom, var(--glass-bg) 0%, transparent 100%);
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .model-info h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .model-info h1 i {
+            color: var(--primary-color);
+        }
+
+        .model-info p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: absolute;
+            top: 50%;
+            right: 2rem;
+            transform: translateY(-50%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            width: 300px;
+            z-index: 50;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .control-panel.hidden {
+            transform: translateY(-50%) translateX(400px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .control-panel-toggle {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%) translateX(100%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-left: none;
+            border-radius: 0 0.5rem 0.5rem 0;
+            padding: 0.75rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: var(--transition);
+            z-index: 51;
+        }
+
+        .control-panel-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .control-panel h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .control-panel h3 i {
+            color: var(--primary-color);
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .control-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary-color);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--dark-bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        .loading-icon {
+            font-size: 3.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .loading-subtext {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .progress-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Error Overlay */
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--dark-bg);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            padding: 2rem;
+        }
+
+        .error-content {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            color: #ef4444;
+            margin-bottom: 1rem;
+        }
+
+        .error-text {
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        /* Instructions */
+        .instructions {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            max-width: 300px;
+            z-index: 50;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+        }
+
+        .instructions.hidden {
+            opacity: 0;
+            transform: translateX(-100%);
+            pointer-events: none;
+        }
+
+        .instructions h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .instructions h3 i {
+            color: var(--secondary-color);
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions li {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .instructions li:before {
+            content: "•";
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .viewer-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            background: linear-gradient(to top, var(--glass-bg) 0%, transparent 100%);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .footer-info {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .footer-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 300px;
+        }
+
+        /* Screenshot Preview */
+        .screenshot-preview {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1002;
+            padding: 2rem;
+        }
+
+        .screenshot-image {
+            max-width: 90%;
+            max-height: 70%;
+            border-radius: 0.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .screenshot-actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .control-panel:not(.hidden) {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                transform: none;
+                border-radius: 1rem 1rem 0 0;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            
+            .control-panel-toggle {
+                display: none;
+            }
+            
+            .instructions {
+                display: none;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+            
+            .header-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .viewer-header {
+                padding: 1rem;
+            }
+            
+            .viewer-footer {
+                padding: 1rem;
+            }
+            
+            .model-info h1 {
+                font-size: 1.25rem;
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="viewer-container">
+        <!-- Canvas Container -->
+        <div class="canvas-container" id="viewerCanvas"></div>
+        
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-icon">
+                    <i class="fa fa-cube"></i>
+                </div>
+                <h2 class="loading-text">Loading 3D Model</h2>
+                <p class="loading-subtext" id="loadingModelName"><%= data.message %></p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+        </div>
+        
+        <!-- Error Overlay -->
+        <div class="error-overlay" id="errorOverlay">
+            <div class="error-content">
+                <div class="error-icon">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </div>
+                <h2>Failed to Load Model</h2>
+                <p class="error-text" id="errorText">An error occurred while loading the model.</p>
+                <div class="control-buttons">
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i class="fa fa-refresh"></i> Try Again
+                    </button>
+                    <button class="btn btn-outline" onclick="window.history.back()">
+                        <i class="fa fa-arrow-left"></i> Back to Models
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Screenshot Preview -->
+        <div class="screenshot-preview" id="screenshotPreview">
+            <img class="screenshot-image" id="screenshotImage" alt="Screenshot Preview">
+            <div class="screenshot-actions">
+                <button class="btn btn-primary" onclick="downloadScreenshot()">
+                    <i class="fa fa-download"></i> Download
+                </button>
+                <button class="btn btn-outline" onclick="closeScreenshotPreview()">
+                    <i class="fa fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+        
+        <!-- Header -->
+        <div class="viewer-header fade-in">
+            <div class="header-content">
+                <div class="model-info">
+                    <h1>
+                        <i class="fa fa-cube"></i>
+                        <%= data.message %>
+                    </h1>
+                    <p>3D Gaussian Splatting Model</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-outline" onclick="window.history.back()">
+                        <i class="fa fa-arrow-left"></i> Back to Models
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="toggleInstructions()">
+                        <i class="fa fa-question-circle"></i> Help
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Control Panel -->
+        <div class="control-panel fade-in" id="controlPanel">
+            <div class="control-panel-toggle" id="panelToggle" onclick="toggleControlPanel()">
+                <i class="fa fa-sliders" id="panelToggleIcon"></i>
+            </div>
+            <h3>
+                <span><i class="fa fa-sliders"></i> Controls</span>
+                <button class="btn btn-sm btn-outline" onclick="toggleControlPanel()" style="padding: 0.25rem 0.5rem;">
+                    <i class="fa fa-times"></i>
+                </button>
+            </h3>
+            
+            <div class="control-group">
+                <label class="control-label">Rotation Speed</label>
+                <input type="range" min="0" max="2" step="0.1" value="1" class="control-slider" id="rotationSpeed">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">View Controls</label>
+                <div class="control-buttons">
+                    <button class="btn btn-outline" onclick="resetView()">
+                        <i class="fa fa-home"></i> Reset View
+                    </button>
+                    <button class="btn btn-outline" onclick="toggleAutoRotate()" id="autoRotateBtn">
+                        <i class="fa fa-rotate-right"></i> Auto Rotate
+                    </button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Actions</label>
+                <div class="control-buttons">
+                    <button class="btn btn-outline" onclick="takeScreenshot()">
+                        <i class="fa fa-camera"></i> Screenshot
+                    </button>
+                    <button class="btn btn-outline" onclick="toggleFullscreen()" id="fullscreenBtn">
+                        <i class="fa fa-expand"></i> Fullscreen
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions fade-in" id="instructionsPanel">
+            <h3>
+                <span><i class="fa fa-info-circle"></i> Controls</span>
+                <button class="btn btn-sm btn-outline" onclick="toggleInstructions()" style="padding: 0.25rem 0.5rem;">
+                    <i class="fa fa-times"></i>
+                </button>
+            </h3>
+            <ul>
+                <li><strong>Left Click + Drag:</strong> Rotate view</li>
+                <li><strong>Right Click + Drag:</strong> Pan view</li>
+                <li><strong>Scroll Wheel:</strong> Zoom in/out</li>
+                <li><strong>Double Click:</strong> Focus on point</li>
+                <li><strong>Space:</strong> Toggle auto-rotate</li>
+                <li><strong>R:</strong> Reset view</li>
+                <li><strong>H:</strong> Toggle help panel</li>
+                <li><strong>C:</strong> Toggle controls panel</li>
+                <li><strong>F:</strong> Toggle fullscreen</li>
+                <li><strong>S:</strong> Take screenshot</li>
+            </ul>
+        </div>
+        
+        <!-- Footer -->
+        <div class="viewer-footer fade-in">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <i class="fa fa-info-circle"></i> Powered by 3D Gaussian Splatting
+                </div>
+                <div class="footer-actions">
+                    <button class="btn btn-outline btn-sm" onclick="toggleControlPanel()">
+                        <i class="fa fa-sliders"></i> Controls
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="toggleInstructions()">
+                        <i class="fa fa-question-circle"></i> Help
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let viewer = null;
+        let autoRotate = false;
+        let rotationSpeed = 1;
+        let isFullscreen = false;
+        let currentScreenshotUrl = null;
+        
+        // Helper function to check if element is in fullscreen
+        function isFullScreen() {
+            return !!(document.fullscreenElement || 
+                     document.webkitFullscreenElement || 
+                     document.mozFullScreenElement || 
+                     document.msFullscreenElement);
+        }
+        
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            const container = document.querySelector('.viewer-container');
+            
+            if (!isFullScreen()) {
+                // Enter fullscreen
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.mozRequestFullScreen) {
+                    container.mozRequestFullScreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                isFullscreen = true;
+                showNotification('Entered fullscreen mode');
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                isFullscreen = false;
+                showNotification('Exited fullscreen mode');
+            }
+            
+            // Update button text
+            updateFullscreenButton();
+        }
+        
+        function updateFullscreenButton() {
+            const btn = document.getElementById('fullscreenBtn');
+            if (isFullScreen()) {
+                btn.innerHTML = '<i class="fa fa-compress"></i> Exit Fullscreen';
+            } else {
+                btn.innerHTML = '<i class="fa fa-expand"></i> Fullscreen';
+            }
+        }
+        
+        // Screenshot functionality
+        function takeScreenshot() {
+            try {
+                // Find the Three.js canvas
+                const canvas = document.querySelector('canvas');
+                if (!canvas) {
+                    showNotification('Canvas not found');
+                    return;
+                }
+                
+                // Create a temporary canvas for higher quality
+                const tempCanvas = document.createElement('canvas');
+                const scale = 2; // Scale for higher resolution
+                tempCanvas.width = canvas.width * scale;
+                tempCanvas.height = canvas.height * scale;
+                const ctx = tempCanvas.getContext('2d');
+                
+                // Draw the canvas scaled up for better quality
+                ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // Create data URL
+                const dataUrl = tempCanvas.toDataURL('image/png');
+                currentScreenshotUrl = dataUrl;
+                
+                // Show preview
+                showScreenshotPreview(dataUrl);
+                
+                showNotification('Screenshot captured!');
+                
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                showNotification('Failed to capture screenshot');
+            }
+        }
+        
+        function showScreenshotPreview(dataUrl) {
+            const preview = document.getElementById('screenshotPreview');
+            const image = document.getElementById('screenshotImage');
+            
+            image.src = dataUrl;
+            preview.style.display = 'flex';
+            
+            // Close on ESC key
+            const closeOnEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeScreenshotPreview();
+                    document.removeEventListener('keydown', closeOnEsc);
+                }
+            };
+            document.addEventListener('keydown', closeOnEsc);
+        }
+        
+        function closeScreenshotPreview() {
+            document.getElementById('screenshotPreview').style.display = 'none';
+            currentScreenshotUrl = null;
+        }
+        
+        function downloadScreenshot() {
+            if (!currentScreenshotUrl) return;
+            
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const modelName = '<%= data.message %>'.replace(/\.[^/.]+$/, "");
+            const filename = `3dgs-${modelName}-${timestamp}.png`;
+            
+            link.download = filename;
+            link.href = currentScreenshotUrl;
+            link.click();
+            
+            showNotification('Screenshot downloaded as ' + filename);
+            closeScreenshotPreview();
+        }
+        
+        // Panel toggle functions
+        function toggleControlPanel() {
+            const panel = document.getElementById('controlPanel');
+            const toggleIcon = document.getElementById('panelToggleIcon');
+            
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                toggleIcon.className = 'fa fa-times';
+                showNotification('Controls panel shown');
+            } else {
+                panel.classList.add('hidden');
+                toggleIcon.className = 'fa fa-sliders';
+                showNotification('Controls panel hidden');
+            }
+        }
+        
+        function toggleInstructions() {
+            const panel = document.getElementById('instructionsPanel');
+            
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                showNotification('Help panel shown');
+            } else {
+                panel.classList.add('hidden');
+                showNotification('Help panel hidden');
+            }
+        }
+        
+        // Notification function
+        function showNotification(message) {
+            // Remove existing notification
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <i class="fa fa-check-circle" style="color: var(--secondary-color);"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(20px)';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        // Error display function
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorOverlay').style.display = 'flex';
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    </script>
+
     <script type="module">
     import * as GaussianSplats3D from 'test/gaussian-splats-3d';
-    import * as THREE from 'three';
     
     // Get the model name from the server data
     const modelName = '<%= data.message %>';
     console.log("Loading model:", modelName);
     
     // Create the correct URL for the splat file
-    // Use absolute path starting with /
     let splatPath = '/splats/' + modelName;
     
     // Determine file extension
     if (modelName.toLowerCase().endsWith('.splat') || 
         modelName.toLowerCase().endsWith('.ksplat') || 
         modelName.toLowerCase().endsWith('.ply')) {
-        // If modelName already has extension, use it as is
         splatPath = '/splats/' + modelName;
     } else {
-        // Add appropriate extension
         splatPath = '/splats/' + modelName + '.splat';
     }
     
@@ -55,7 +928,7 @@
     var camera_up = [0, 0, 1];
     var initial_camera_position = [-3.15634, -0.16946, -0.51552];
     
-    // You can add more model-specific camera settings here
+    // Model-specific camera settings
     if (modelName.includes("truck")) {
         camera_up = [0, -1, -0.17];
         initial_camera_position = [-5, -1, -1];
@@ -64,106 +937,171 @@
         initial_camera_position = [-3.3816, 1.96931, -1.71890];
     }
     
+    // Update loading text
+    document.getElementById('loadingModelName').textContent = modelName;
+    
     // Initialize the viewer
-    const viewer = new GaussianSplats3D.Viewer({
+    viewer = new GaussianSplats3D.Viewer({
         'cameraUp': camera_up,
         'initialCameraPosition': initial_camera_position,
         'useBuiltInControls': true,
         'antiAlias': true,
-        'fovy': 60
+        'fovy': 60,
+        'rendererAlpha': true,
+        'rendererClearColor': 0x000000,
+        'rendererClearAlpha': 0
     });
     
     // Try to load the splat file
-    console.log("Attempting to load:", splatPath);
-    
     viewer.addSplatScene(splatPath, {
         'streamView': true,
         'progressiveLoad': true,
         'onProgress': function(progress) {
-            console.log('Loading progress:', Math.round(progress * 100) + '%');
+            const progressPercent = Math.round(progress * 100);
+            document.getElementById('progressFill').style.width = progressPercent + '%';
+            document.getElementById('progressText').textContent = progressPercent + '%';
+            console.log('Loading progress:', progressPercent + '%');
         },
         'onError': function(error) {
             console.error('Failed to load splat file:', error);
-            // Display error message
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = `
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                color: white;
-                background: rgba(255, 0, 0, 0.7);
-                padding: 20px;
-                border-radius: 10px;
-                font-family: Arial, sans-serif;
-                text-align: center;
-                max-width: 80%;
-            `;
-            errorDiv.innerHTML = `
-                <h2>Failed to load model</h2>
-                <p>Error: ${error.message || 'Unknown error'}</p>
-                <p>URL: ${splatPath}</p>
-                <p>Please check the console for more details.</p>
-            `;
-            document.body.appendChild(errorDiv);
+            showError('Failed to load model: ' + (error.message || 'Unknown error'));
         }
     })
     .then(() => {
         console.log('Splat scene loaded successfully');
+        
+        // Hide loading overlay
+        document.getElementById('loadingOverlay').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }, 300);
+        
+        // Start the viewer
         viewer.start();
         
-        // Add loading indicator removal
-        const loadingIndicator = document.getElementById('loading');
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
+        // Setup controls
+        setupControls();
+        
+        // Setup keyboard shortcuts
+        setupKeyboardShortcuts();
     })
     .catch((error) => {
         console.error('Failed to initialize viewer:', error);
+        showError('Failed to initialize viewer: ' + error.message);
     });
     
-    // Add loading indicator
-    const loadingDiv = document.createElement('div');
-    loadingDiv.id = 'loading';
-    loadingDiv.style.cssText = `
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-family: Arial, sans-serif;
-        text-align: center;
-    `;
-    loadingDiv.innerHTML = `
-        <div style="font-size: 24px; margin-bottom: 20px;">Loading 3D Model...</div>
-        <div style="width: 100px; height: 4px; background: #333; margin: 0 auto; border-radius: 2px; overflow: hidden;">
-            <div id="progressBar" style="width: 0%; height: 100%; background: #4CAF50; transition: width 0.3s;"></div>
-        </div>
-    `;
-    document.body.appendChild(loadingDiv);
+    // Control functions
+    function setupControls() {
+        // Rotation speed slider
+        const rotationSlider = document.getElementById('rotationSpeed');
+        rotationSlider.addEventListener('input', function(e) {
+            rotationSpeed = parseFloat(e.target.value);
+            if (viewer && viewer.controls) {
+                viewer.controls.rotateSpeed = rotationSpeed * 2;
+                if (autoRotate) {
+                    viewer.controls.autoRotateSpeed = rotationSpeed;
+                }
+            }
+        });
+    }
     
-    // Optional: Add a back button
-    const backButton = document.createElement('button');
-    backButton.textContent = '← Back to Models';
-    backButton.style.cssText = `
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        padding: 10px 20px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        z-index: 1000;
-        backdrop-filter: blur(5px);
-    `;
-    backButton.onclick = () => {
-        window.history.back();
-    };
-    document.body.appendChild(backButton);
+    function setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            switch(e.key.toLowerCase()) {
+                case ' ': // Space - toggle auto-rotate
+                    e.preventDefault();
+                    toggleAutoRotate();
+                    break;
+                case 'r': // R - reset view
+                    e.preventDefault();
+                    resetView();
+                    break;
+                case 'h': // H - toggle help
+                    e.preventDefault();
+                    toggleInstructions();
+                    break;
+                case 'c': // C - toggle controls
+                    e.preventDefault();
+                    toggleControlPanel();
+                    break;
+                case 'f': // F - fullscreen
+                    e.preventDefault();
+                    toggleFullscreen();
+                    break;
+                case 's': // S - screenshot
+                    e.preventDefault();
+                    takeScreenshot();
+                    break;
+                case 'escape': // ESC - close screenshot preview
+                    if (document.getElementById('screenshotPreview').style.display === 'flex') {
+                        closeScreenshotPreview();
+                    }
+                    break;
+            }
+        });
+    }
+    
+    function resetView() {
+        if (viewer && viewer.controls) {
+            viewer.controls.reset();
+            showNotification('View reset');
+        }
+    }
+    
+    function toggleAutoRotate() {
+        autoRotate = !autoRotate;
+        if (viewer && viewer.controls) {
+            viewer.controls.autoRotate = autoRotate;
+            viewer.controls.autoRotateSpeed = rotationSpeed;
+            
+            const btn = document.getElementById('autoRotateBtn');
+            if (autoRotate) {
+                btn.innerHTML = '<i class="fa fa-pause"></i> Stop Rotation';
+                btn.classList.add('btn-primary');
+                btn.classList.remove('btn-outline');
+                showNotification('Auto-rotate enabled');
+            } else {
+                btn.innerHTML = '<i class="fa fa-rotate-right"></i> Auto Rotate';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline');
+                showNotification('Auto-rotate disabled');
+            }
+        }
+    }
+    
+    // Handle fullscreen changes
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+    document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (viewer && viewer.renderer) {
+            viewer.renderer.setSize(window.innerWidth, window.innerHeight);
+            if (viewer.camera) {
+                viewer.camera.aspect = window.innerWidth / window.innerHeight;
+                viewer.camera.updateProjectionMatrix();
+            }
+        }
+    });
+    
+    // Add canvas to container
+    window.addEventListener('load', function() {
+        const canvas = document.querySelector('canvas');
+        if (canvas && viewer && viewer.renderer) {
+            const container = document.getElementById('viewerCanvas');
+            container.appendChild(canvas);
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+        }
+    });
+    
+    // Initialize fullscreen button state
+    updateFullscreenButton();
     </script>
-  </body>
+</body>
 </html>
