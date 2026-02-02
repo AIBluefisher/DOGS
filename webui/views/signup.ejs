@@ -2,9 +2,10 @@
 <html lang="en">
 
 <head>
-	<title>Login V1</title>
+	<title>Sign Up - 3DGS Viewer</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Create your 3DGS Viewer account">
 	<!--===============================================================================================-->
 	<link rel="icon" type="image/png" href="./static/images/login/icons/favicon.ico" />
 	<!--===============================================================================================-->
@@ -21,6 +22,27 @@
 	<link rel="stylesheet" type="text/css" href="./static/css/util.css">
 	<link rel="stylesheet" type="text/css" href="./static/css/login.css">
 	<!--===============================================================================================-->
+	<!-- Custom Styles for new fields -->
+	<style>
+		/* Additional styling for new fields */
+		.form-field-info {
+			font-size: 12px;
+			color: #666;
+			margin-top: 4px;
+			margin-left: 15px;
+			display: block;
+		}
+		
+		.optional-badge {
+			background-color: #f0f0f0;
+			color: #666;
+			font-size: 11px;
+			padding: 2px 6px;
+			border-radius: 3px;
+			margin-left: 5px;
+			font-weight: normal;
+		}
+	</style>
 </head>
 
 <body>
@@ -34,27 +56,81 @@
 
 				<form class="login100-form validate-form" action="/signup" method="post">
 					<span class="login100-form-title">
-						Member Signup
+						Create Account
 					</span>
-					<section class="wrap-input100 validate-input">
+					
+					<!-- Username Field -->
+					<div class="wrap-input100 validate-input">
 						<input class="input100" id="username" name="username" type="text" autocomplete="username" placeholder="Username" required autofocus>
 						<span class="focus-input100"></span>
 						<span class="symbol-input100">
 							<i class="fa fa-user" aria-hidden="true"></i>
 						</span>
-					</section>
-					<section class="wrap-input100 validate-input" >
+					</div>
+					<small class="form-field-info">Choose a unique username (cannot be changed later)</small>
+
+					<!-- Email Field -->
+					<div class="wrap-input100 validate-input" data-validate="Valid email is required">
+						<input class="input100" id="email" name="email" type="email" autocomplete="email" placeholder="Email Address" required>
+						<span class="focus-input100"></span>
+						<span class="symbol-input100">
+							<i class="fa fa-envelope" aria-hidden="true"></i>
+						</span>
+					</div>
+					<small class="form-field-info">Used for Gravatar and account recovery</small>
+
+					<!-- Full Name Field (Optional) -->
+					<div class="wrap-input100">
+						<input class="input100" id="full_name" name="full_name" type="text" autocomplete="name" placeholder="Full Name (Optional)">
+						<span class="focus-input100"></span>
+						<span class="symbol-input100">
+							<i class="fa fa-id-card" aria-hidden="true"></i>
+						</span>
+					</div>
+					<small class="form-field-info">Display name for your profile</small>
+
+					<!-- Password Field -->
+					<div class="wrap-input100 validate-input" data-validate="Password is required">
 						<input class="input100" id="new-password" name="password" type="password" autocomplete="new-password" placeholder="Password" required>
 						<span class="focus-input100"></span>
 						<span class="symbol-input100">
 							<i class="fa fa-lock" aria-hidden="true"></i>
 						</span>
-					</section>
+					</div>
+					<small class="form-field-info">Minimum 8 characters recommended</small>
+
+					<!-- Confirm Password Field -->
+					<div class="wrap-input100 validate-input" data-validate="Password confirmation is required">
+						<input class="input100" id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" placeholder="Confirm Password" required>
+						<span class="focus-input100"></span>
+						<span class="symbol-input100">
+							<i class="fa fa-lock" aria-hidden="true"></i>
+						</span>
+					</div>
+					<small class="form-field-info">Re-enter your password</small>
+
+					<!-- CSRF Token -->
 					<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-					<button class="login100-form-btn" type="submit">Sign up</button>
+					
+					<!-- Submit Button -->
+					<div class="container-login100-form-btn">
+						<button class="login100-form-btn" type="submit">Create Account</button>
+					</div>
+
+					<!-- Terms Agreement -->
+					<div class="text-center p-t-12" style="margin-top: 20px;">
+						<p class="txt2" style="font-size: 13px; color: #666;">
+							By creating an account, you agree to our 
+							<a href="/terms" style="color: #667eea;">Terms of Service</a> 
+							and 
+							<a href="/privacy" style="color: #667eea;">Privacy Policy</a>
+						</p>
+					</div>
 				</form>
+
+				<!-- Already have account -->
 				<div class="text-center p-t-136">
-					<p class="tx2">Already have an account? <a href="/login">Sign in</a></p>
+					<p class="txt2">Already have an account? <a href="/login">Sign in</a></p>
 				</div>
                 
 			</div>
@@ -74,7 +150,48 @@
 	<script>
 		$('.js-tilt').tilt({
 			scale: 1.1
-		})
+		});
+		
+		// Password confirmation validation
+		$(document).ready(function() {
+			$('form').on('submit', function(e) {
+				const password = $('#new-password').val();
+				const confirmPassword = $('#confirm-password').val();
+				
+				if (password !== confirmPassword) {
+					e.preventDefault();
+					alert('Passwords do not match!');
+					$('#confirm-password').focus();
+					return false;
+				}
+				
+				if (password.length < 8) {
+					if (!confirm('Your password is less than 8 characters. Continue anyway?')) {
+						e.preventDefault();
+						$('#new-password').focus();
+						return false;
+					}
+				}
+				
+				return true;
+			});
+			
+			// Real-time password match indicator
+			$('#confirm-password').on('keyup', function() {
+				const password = $('#new-password').val();
+				const confirmPassword = $(this).val();
+				
+				if (confirmPassword === '') return;
+				
+				if (password === confirmPassword) {
+					$(this).css('border-color', '#28a745');
+					$(this).next('.focus-input100').css('background', '#28a745');
+				} else {
+					$(this).css('border-color', '#dc3545');
+					$(this).next('.focus-input100').css('background', '#dc3545');
+				}
+			});
+		});
 	</script>
 	<!--===============================================================================================-->
 	<script src="./static/js/login.js"></script>

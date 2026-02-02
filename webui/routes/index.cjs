@@ -4,7 +4,7 @@ var db = require('../db.cjs');
 var multer = require('multer');
 var path = require('path');
 var fs = require('fs');
-
+var gravatar = require('../gravatar.cjs');
 var router = express.Router();
 
 // Configure multer for file uploads
@@ -192,6 +192,7 @@ function fetch_models(req, res, next) {
 router.get('/', fetch_models, function(req, res, next) {
   res.render('index', { 
     user: req.user,
+    gravatar: gravatar, // Pass gravatar to template
     models: res.locals.models,
     page: res.locals.page,
     pageSize: res.locals.pageSize,

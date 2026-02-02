@@ -10,7 +10,8 @@ var sqlite3 = require('sqlite3');
 var router = express.Router();
 const fs = require('fs');
 
-var db = new sqlite3.Database('./database/main.db');
+// Remove this duplicate line - you're importing db above
+// var db = new sqlite3.Database('./database/main.db');
 
 /* Configure password authentication strategy.
  *
@@ -53,15 +54,44 @@ passport.use(new LocalStrategy(function verify(username, password, cb) {
  * fetch todo records and render the user element in the navigation bar, that
  * information is stored in the session.
  */
+
+// Update serializeUser - store only the user ID in session
 passport.serializeUser(function (user, cb) {
     process.nextTick(function () {
-        cb(null, { id: user.id, username: user.username });
+        if (!user || !user.id) {
+            console.error('Serialize error: Invalid user object', user);
+            return cb(new Error('Invalid user object'));
+        }
+        cb(null, user.id); // Store only ID to keep session small
     });
 });
 
-passport.deserializeUser(function (user, cb) {
-    process.nextTick(function () {
-        return cb(null, user);
+// Update deserializeUser - fetch full user data from database
+passport.deserializeUser(function (id, cb) {
+    db.get('SELECT * FROM users WHERE id = ?', [id], function (err, user) {
+        if (err) { 
+            console.error('Deserialize error:', err);
+            return cb(err); 
+        }
+        
+        if (!user) {
+            console.warn('User not found for id:', id);
+            return cb(null, false); // User not found
+        }
+        
+        // Ensure all fields exist (for backward compatibility)
+        const completeUser = {
+            id: user.id,
+            username: user.username,
+            email: user.email || null,
+            full_name: user.full_name || null,
+            bio: user.bio || null,
+            avatar_path: user.avatar_path || null,
+            created_at: user.created_at || null,
+            updated_at: user.updated_at || null
+        };
+        
+        cb(null, completeUser);
     });
 });
 
@@ -99,36 +129,88 @@ router.get('/signup', function(req, res, next) {
     res.render('signup');
   });
   
-  /* POST /signup
-   *
-   * This route creates a new user account.
-   *
-   * A desired username and password are submitted to this route via an HTML form,
-   * which was rendered by the `GET /signup` route.  The password is hashed and
-   * then a new user record is inserted into the database.  If the record is
-   * successfully created, the user is logged in.
-   */
-  router.post('/signup', function(req, res, next) {
-    var salt = crypto.randomBytes(16);
-    crypto.pbkdf2(req.body.password, salt, 310000, 32, 'sha256', function(err, hashedPassword) {
-      if (err) { return next(err); }
-      db.run('INSERT INTO users (username, hashed_password, salt) VALUES (?, ?, ?)', [
-        req.body.username,
-        hashedPassword,
-        salt
-      ], function(err) {
+/* POST /signup
+ *
+ * This route creates a new user account.
+ *
+ * A desired username and password are submitted to this route via an HTML form,
+ * which was rendered by the `GET /signup` route.  The password is hashed and
+ * then a new user record is inserted into the database.  If the record is
+ * successfully created, the user is logged in.
+ */
+router.post('/signup', function(req, res, next) {
+    // Validate password confirmation
+    if (req.body.password !== req.body.confirm_password) {
+        req.session.messages = [{type: 'error', text: 'Passwords do not match'}];
+        return res.redirect('/signup');
+    }
+    
+    // Check if username already exists
+    db.get('SELECT id FROM users WHERE username = ?', [req.body.username], function(err, row) {
         if (err) { return next(err); }
-        var user = {
-          id: this.lastID,
-          username: req.body.username
-        };
-        req.login(user, function(err) {
-          if (err) { return next(err); }
-          res.redirect('/');
-        });
-      });
+        if (row) {
+            req.session.messages = [{type: 'error', text: 'Username already exists'}];
+            return res.redirect('/signup');
+        }
+        
+        // Check if email already exists
+        if (req.body.email) {
+            db.get('SELECT id FROM users WHERE email = ?', [req.body.email], function(err, emailRow) {
+                if (err) { return next(err); }
+                if (emailRow) {
+                    req.session.messages = [{type: 'error', text: 'Email already registered'}];
+                    return res.redirect('/signup');
+                }
+                
+                proceedWithSignup();
+            });
+        } else {
+            proceedWithSignup();
+        }
     });
-  });
+    
+    function proceedWithSignup() {
+        var salt = crypto.randomBytes(16);
+        crypto.pbkdf2(req.body.password, salt, 310000, 32, 'sha256', function(err, hashedPassword) {
+            if (err) { return next(err); }
+            
+            // Include additional fields in the INSERT statement
+            db.run('INSERT INTO users (username, hashed_password, salt, email, full_name) VALUES (?, ?, ?, ?, ?)', [
+                req.body.username,
+                hashedPassword,
+                salt,
+                req.body.email || null,
+                req.body.full_name || null
+            ], function(err) {
+                if (err) { 
+                    console.error('Signup error:', err);
+                    req.session.messages = [{type: 'error', text: 'Failed to create account'}];
+                    return res.redirect('/signup');
+                }
+                
+                // Fetch the complete user record after creation
+                db.get('SELECT * FROM users WHERE id = ?', [this.lastID], function(err, user) {
+                    if (err) { 
+                        console.error('Error fetching user after signup:', err);
+                        req.session.messages = [{type: 'error', text: 'Account created but login failed'}];
+                        return res.redirect('/login');
+                    }
+                    
+                    req.login(user, function(err) {
+                        if (err) { 
+                            console.error('Login error after signup:', err);
+                            req.session.messages = [{type: 'error', text: 'Account created but login failed'}];
+                            return res.redirect('/login');
+                        }
+                        
+                        req.session.messages = [{type: 'success', text: 'Account created successfully!'}];
+                        res.redirect('/');
+                    });
+                });
+            });
+        });
+    }
+});
 
 router.get('/upload', function(req, res, next) {
   // res.render('upload', { user: req.user, csrfToken: req.csrfToken() });

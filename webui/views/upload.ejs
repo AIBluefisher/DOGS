@@ -581,15 +581,27 @@
                 <% } else { %>
                     <div class="user-menu">
                         <div class="user-avatar">
-                            <%= user.username.charAt(0).toUpperCase() %>
+                            <% if (user.avatar_path) { %>
+                                <!-- User uploaded avatar -->
+                                <img src="<%= user.avatar_path %>" alt="<%= user.username %>" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            <% } else if (user.email) { %>
+                                <!-- Gravatar -->
+                                <img src="<%= gravatar.getGravatarUrl(user.email, 40, 'identicon') %>" alt="<%= user.username %>" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            <% } else { %>
+                                <!-- Fallback to initials -->
+                                <%= user.username.charAt(0).toUpperCase() %>
+                            <% } %>
                         </div>
                         <div class="dropdown-menu">
                             <span class="dropdown-item" style="font-weight: 600;">
                                 <i class="fa fa-user"></i> <%= user.username %>
+                                <% if (user.full_name) { %>
+                                    <br><small style="font-weight: normal; font-size: 0.875rem;"><%= user.full_name %></small>
+                                <% } %>
                             </span>
                             <hr style="margin: 0.5rem 0; border-color: rgba(0,0,0,0.1);">
-                            <a href="#" class="dropdown-item">
-                                <i class="fa fa-cog"></i> Settings
+                            <a href="/profile" class="dropdown-item">
+                                <i class="fa fa-cog"></i> Profile Settings
                             </a>
                             <a href="/upload" class="dropdown-item">
                                 <i class="fa fa-upload"></i> Upload Model
