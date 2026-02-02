@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="description" content="3D Gaussian Splatting Viewer - Visualize <%= data.message %> in real-time">
-    <title><%= data.message %> - 3DGS Viewer</title>
+    <title><%= data.title %> - 3DGS Viewer</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -567,7 +567,7 @@
                     <i class="fa fa-cube"></i>
                 </div>
                 <h2 class="loading-text">Loading 3D Model</h2>
-                <p class="loading-subtext" id="loadingModelName"><%= data.message %></p>
+                <p class="loading-subtext" id="loadingModelName"><%= data.title %></p>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
@@ -613,9 +613,14 @@
                 <div class="model-info">
                     <h1>
                         <i class="fa fa-cube"></i>
-                        <%= data.message %>
+                        <%= data.title %>
                     </h1>
                     <p>3D Gaussian Splatting Model</p>
+                    <% if (data.description) { %>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">
+                            <%= data.description %>
+                        </p>
+                    <% } %>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-outline" onclick="window.history.back()">
@@ -833,7 +838,7 @@
             
             const link = document.createElement('a');
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const modelName = '<%= data.message %>'.replace(/\.[^/.]+$/, "");
+            const modelName = '<%= data.title %>'.replace(/\.[^/.]+$/, "");
             const filename = `3dgs-${modelName}-${timestamp}.png`;
             
             link.download = filename;
@@ -905,25 +910,46 @@
 
     <script type="module">
     import * as GaussianSplats3D from 'test/gaussian-splats-3d';
-    
+        
     // Get the model name from the server data
-    const modelName = '<%= data.message %>';
+    const modelName = '<%= data.filename %>';
+    const dbPath = '<%= data.dbPath || "" %>';
     console.log("Loading model:", modelName);
-    
+    console.log("Database path:", dbPath);
+
     // Create the correct URL for the splat file
-    let splatPath = '/splats/' + modelName;
-    
-    // Determine file extension
-    if (modelName.toLowerCase().endsWith('.splat') || 
-        modelName.toLowerCase().endsWith('.ksplat') || 
-        modelName.toLowerCase().endsWith('.ply')) {
-        splatPath = '/splats/' + modelName;
-    } else {
-        splatPath = '/splats/' + modelName + '.splat';
+    // Try to use the path from database first
+    let splatPath = dbPath || '/splats/' + modelName;
+        
+    // If dbPath doesn't start with /splats/, prepend it
+    if (splatPath && !splatPath.startsWith('/splats/')) {
+        // Extract just the filename
+        const fileName = splatPath.substring(splatPath.lastIndexOf('/') + 1);
+        splatPath = '/splats/' + fileName;
     }
-    
-    console.log("Splat file path:", splatPath);
-    
+        
+    console.log("Final splat file path:", splatPath);
+    console.log("File exists check from server:", <%= data.fileExists || false %>);
+
+    // Test if the file is accessible
+    fetch(splatPath)
+        .then(response => {
+            console.log("File fetch response:", response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`File not found: ${splatPath} (${response.status})`);
+            }
+            return response;
+        })
+        .then(() => {
+            // File is accessible, proceed with loading
+            loadSplatFile(splatPath);
+        })
+        .catch(error => {
+            console.error('File accessibility check failed:', error);
+            showError('Model file not found or inaccessible. Please check if the file exists.');
+        });
+        
+    function loadSplatFile(splatPath) {
     // Set camera parameters based on model
     var camera_up = [0, 0, 1];
     var initial_camera_position = [-3.15634, -0.16946, -0.51552];
@@ -938,7 +964,7 @@
     }
     
     // Update loading text
-    document.getElementById('loadingModelName').textContent = modelName;
+    document.getElementById('loadingModelName').textContent = '<%= data.title %>';
     
     // Initialize the viewer
     viewer = new GaussianSplats3D.Viewer({
@@ -964,7 +990,7 @@
         },
         'onError': function(error) {
             console.error('Failed to load splat file:', error);
-            showError('Failed to load model: ' + (error.message || 'Unknown error'));
+            showError('Failed to load model file. Error: ' + (error.message || 'Unknown error'));
         }
     })
     .then(() => {
@@ -989,6 +1015,7 @@
         console.error('Failed to initialize viewer:', error);
         showError('Failed to initialize viewer: ' + error.message);
     });
+}
     
     // Control functions
     function setupControls() {

@@ -3,6 +3,7 @@ const path = require('path');
 const cookie_parser = require('cookie-parser');
 const body_parser = require('body-parser');
 const fs = require('fs');
+var db = require('./db.cjs');
 var session = require('express-session');
 var csrf = require('csurf');
 var index_router = require('./routes/index.cjs')
@@ -79,7 +80,6 @@ app.use('/', delete_router);
 app.get('/viewer:tagId', (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content, Accept, Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Cross-origin-Embedder-Policy', 'require-corp');
     res.setHeader('Cross-origin-Opener-Policy','same-origin');
     
@@ -96,11 +96,54 @@ app.get('/viewer:tagId', (req, res) => {
     
     console.log("Cleaned model name:", model_name);
     
-    const data = {
-        message: model_name,
-    }
-
-    res.render('viewer', { data });
+    // Check if file exists physically
+    const filePath = path.join(DEV_SPLATS_DIR, model_name);
+    console.log("Looking for file at:", filePath);
+    console.log("File exists:", fs.existsSync(filePath));
+    
+    // Query database for model details including title
+    const query = 'SELECT * FROM models WHERE path LIKE ?';
+    
+    db.get('SELECT * FROM models WHERE path LIKE ? OR path = ?', 
+        [`%/${model_name}`, `/splats/${model_name}`], 
+        (err, model) => {
+            
+        if (err) {
+            console.error('Database error:', err);
+            const data = {
+                message: model_name,
+                title: model_name.replace(/\.[^/.]+$/, ""),
+                filename: model_name,
+                fileExists: fs.existsSync(filePath)
+            };
+            return res.render('viewer', { data });
+        }
+        
+        if (model) {
+            console.log("Found model in database:", model.title);
+            console.log("Model path from DB:", model.path);
+            const data = {
+                message: model.title || model_name.replace(/\.[^/.]+$/, ""),
+                title: model.title || model_name.replace(/\.[^/.]+$/, ""),
+                filename: model_name,
+                dbPath: model.path, // Add this for debugging
+                fileExists: fs.existsSync(filePath),
+                description: model.description || '',
+                uploadDate: model.date || '',
+                stars: model.stars || 0
+            };
+            res.render('viewer', { data });
+        } else {
+            console.log("Model not found in database, using filename");
+            const data = {
+                message: model_name.replace(/\.[^/.]+$/, ""),
+                title: model_name.replace(/\.[^/.]+$/, ""),
+                filename: model_name,
+                fileExists: fs.existsSync(filePath)
+            };
+            res.render('viewer', { data });
+        }
+    });
 });
 
 app.listen(port, () => {
